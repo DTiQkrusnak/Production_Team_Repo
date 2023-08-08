@@ -18,3 +18,4 @@ function Invoke-SqlQuery {
         return $_
     }
 }
+Export-ModuleMember -Function * -Alias *
