@@ -23,7 +23,12 @@ function executeScript {
 	)
 	if ($PShellVer -ge 5) {
 		Write-Output("Powershell.v.5 found - executing script")
-		Register-PSRepository -Name 'ShellGet' -SourceLocation 'https://shellget.go360iq.com/nuget' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+		if ($null -eq (Get-PSRepository -name ShellGet -ErrorAction SilentlyContinue)) {
+			Register-PSRepository -Name 'ShellGet' -SourceLocation 'https://shellget.go360iq.com/nuget' -InstallationPolicy Trusted -ErrorAction Stop
+		} else {
+			Write-Output('Repository already added')
+		}
+		
 	}
 	else {
 		Write-Output("PowerShell.v.5 is not installed - skipping script ")
