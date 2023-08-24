@@ -4,8 +4,8 @@ $script:errorArray = @()
 
 function blockWin11Upgrade () {
 	<#
-    .DESCRIPTION
-	Blocks Windows 11 upgrade prompts and blocks version on 21H2
+    .SYNOPSIS
+	Blocks Windows 11 upgrade prompts and version on 21H2
     #>
 
 	$regPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
@@ -25,7 +25,7 @@ function blockWin11Upgrade () {
 			Write-Output('[+] block Windows 11 completed')
 		}
 		else {
-			Write-Output("Script is executing fix only on Windows 10, your Windows : $system")
+			Write-Output("[-] Script is executing fix only on Windows 10, your Windows : $system")
 		}
 	} catch {
 		Write-Error "[-] $($_.Exception.Message)"
@@ -34,8 +34,8 @@ function blockWin11Upgrade () {
 
 function DisableWinUpdateIfAteraNotExists () {
 	<#
-	.DESCRIPTION
-	Disable Windows Update service if Atera service is not present in the system
+	.SYNOPSIS
+	Disables Windows Update service if Atera service is not present in the system
 	#>
 	$ateraRegistryKey = $winUpdateService = $null
 	# Get registry settings for Atera Agent
@@ -70,6 +70,10 @@ function DisableWinUpdateIfAteraNotExists () {
 }
 
 function AteraInstall () {
+	<#
+	.SYNOPSIS
+	Installs Atera service when VDMS-XXXXXXX hostname matches
+	#>
 	Write-Output("[*] Atera Install")
 	try {
 		# Get ControllerId from database EZ360Objects
@@ -128,6 +132,10 @@ function AteraInstall () {
 }
 
 function SetHostname () {
+	<#
+	.SYNOPSIS
+	Sets hostname to VDMS-XXXXXXX, reboot required to take effect
+	#>
 	try {
 		Write-Output('[*] SetHostname')
 
@@ -140,6 +148,7 @@ function SetHostname () {
 		$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System').ControllerId
 		[System.Data.SqlClient.SqlConnection]::ClearAllPools()
 		
+		# Check if hostname matches VDMS standard
 		if ($env:COMPUTERNAME -eq "VDMS-$controllerId") {
 			Write-Output('[+] Hostname already changed')
 			return
@@ -150,6 +159,44 @@ function SetHostname () {
 	} catch {
 		Write-Error "[-] $($_.Exception.Message)"
 	}
+}
+
+function DisableOBEE () {
+	<#
+	.SYNOPSIS
+	Adds registry keys to block Windows consumer experience
+	like 'Hi' and 'Get even more out of Windows' screens
+	#>
+	try {
+		$logonAnimationPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+		if (!(Test-path $logonAnimationPath)) {
+			New-Item -Path $logonAnimationPath -Force
+		}
+		New-ItemProperty -Path $logonAnimationPath -Name 'EnableFirstLogonAnimation' -Value 0 -PropertyType DWord -Force | Out-Null
+	} catch {
+		Write-Error "[-] $($_.Exception.Message)"
+	}
+
+	try {
+		$privacyExperiencePath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\OOBE'
+		if (!(Test-path $privacyExperiencePath)) {
+			New-Item -Path $privacyExperiencePath -Force
+		}
+		New-ItemProperty -Path $privacyExperiencePath -Name 'DisablePrivacyExperience' -Value 1 -PropertyType DWord -Force | Out-Null
+	} catch {
+		Write-Error "[-] $($_.Exception.Message)"
+	}
+	
+	try {
+		$consumerFeaturesPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\OOBE'
+		if (!(Test-path $consumerFeaturesPath)) {
+			New-Item -Path $consumerFeaturesPath -Force
+		}
+		New-ItemProperty -Path $consumerFeaturesPath -Name 'DisableWindowsConsumerFeatures' -Value 1 -PropertyType DWord -Force | Out-Null
+	} catch {
+		Write-Error "[-] $($_.Exception.Message)"
+	}
+
 }
 
 blockWin11Upgrade
