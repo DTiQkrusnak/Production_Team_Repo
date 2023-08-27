@@ -1,12 +1,10 @@
 [Net.ServicePointManager]::SecurityProtocol = 'TLS12', 'SSL3'
-$script:errorArray = @()
-
-
+4
 function blockWin11Upgrade () {
 	<#
-    .SYNOPSIS
+	.SYNOPSIS
 	Blocks Windows 11 upgrade prompts and version on 21H2
-    #>
+	#>
 
 	$regPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
 
@@ -37,9 +35,12 @@ function DisableWinUpdateIfAteraNotExists () {
 	.SYNOPSIS
 	Disables Windows Update service if Atera service is not present in the system
 	#>
-	$ateraRegistryKey = $winUpdateService = $null
+	$ateraRegistryKey = $null
+	$winUpdateService = $null
+	$ateraService = $null
+
 	# Get registry settings for Atera Agent
-	$ateraRegistryKey = Get-Item "registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent" -ErrorAction SilentlyContinue
+	$ateraRegistryKey = Get-Item "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent" -ErrorAction SilentlyContinue
 	# Get Atera servive if exists
 	$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
 	try {
@@ -52,13 +53,15 @@ function DisableWinUpdateIfAteraNotExists () {
 			Write-Output("[*] ALERT : ATERA NOT FOUND!! DISABLING WINDOWSUPDATE SERVICE!!!")
 			$winUpdateService = Get-Service -Name "wuauserv" -ErrorAction SilentlyContinue
 
+			Write-Output("[*] Stopping windows update service")
+			$winUpdateService | Stop-Service -Force -ErrorAction SilentlyContinue
+			Write-Output("[+] $($winUpdateService.DisplayName) service stopped")
+
 			Write-Output("[*] Disabling windows update service")
 			$winUpdateService | Set-Service -StartupType "Disabled"
 			Write-Output("[+] $($winUpdateService.DisplayName) service disabled")
 
-			Write-Output("[*] Stopping windows update service")
-			$winUpdateService | Stop-Service -Force -ErrorAction SilentlyContinue
-			Write-Output("[+] $($winUpdateService.DisplayName) service stopped")
+			
 
 			<#
 			CHECK if 'BITS' and 'DoSvc' has to be disabled here as well
@@ -76,6 +79,22 @@ function AteraInstall () {
 	#>
 	Write-Output("[*] Atera Install")
 	try {
+		$ateraRegistryKey = $null
+		$ateraService = $null
+
+		# Get registry settings for Atera Agent
+		$ateraRegistryKey = Get-Item "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent" -ErrorAction SilentlyContinue
+		
+		# Get Atera service if exists
+		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+		
+		# Checking if atera is present before installation
+		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
+			Write-Output("[+] Atera detected - nothing to do.")
+			Write-Output("[+] Registery keys check : $ateraRegistryKey")
+			return
+		}
+
 		# Get ControllerId from database EZ360Objects
 		$getControllerIdQuery = @'
 		SELECT TOP 1 *
@@ -95,6 +114,25 @@ function AteraInstall () {
 '@
 		$controllerModel = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerModelQuery -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -QueryTimeout 30).name
 		
+		# Set .NET TLS for Atera
+		$dotnetTlsVersionPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\.NETFramework\v4.0.30319'
+		$getKey = Get-ItemProperty -Path $dotnetTlsVersionPath -Name SystemDefaultTlsVersions -ErrorAction SilentlyContinue
+		if ($null -ne $getKey) {
+			Set-ItemProperty -Path $dotnetTlsVersionPath -Name SystemDefaultTlsVersions -Value "00000001" -Force | Out-Null
+		}
+		else {
+			New-ItemProperty -Path $dotnetTlsVersionPath -Name SystemDefaultTlsVersions -PropertyType "DWord" -Value "00000001" -Force | Out-Null
+		}
+
+		$systemDefPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\.NETFramework\v4.0.30319'
+		$getKey = Get-ItemProperty -Path $systemDefPath -Name SystemDef -ErrorAction SilentlyContinue
+		if ($null -ne $getKey) {
+			Set-ItemProperty -Path $systemDefPath -Name SystemDef -Value $null | Out-Null
+		}
+		else {
+			New-ItemProperty -Path $systemDefPath -Name SystemDef | Out-Null
+		}
+
 		# Check if folder for downloads exists
 		Set-Location C:
 		$ateraDownloadPath = 'C:\ProgramData\DTiQ\TaskScheduler\ateraInstall'
@@ -186,7 +224,7 @@ function DisableOBEE () {
 	} catch {
 		Write-Error "[-] $($_.Exception.Message)"
 	}
-	
+
 	try {
 		$consumerFeaturesPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\OOBE'
 		if (!(Test-path $consumerFeaturesPath)) {
@@ -196,10 +234,14 @@ function DisableOBEE () {
 	} catch {
 		Write-Error "[-] $($_.Exception.Message)"
 	}
-
 }
 
 blockWin11Upgrade
 SetHostname
 AteraInstall
 DisableWinUpdateIfAteraNotExists
+DisableOBEE
+
+# TODO
+validateWindowsAccounts
+setTreeACLS
