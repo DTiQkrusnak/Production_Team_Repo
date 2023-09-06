@@ -35,38 +35,45 @@ function DisableWinUpdateIfAteraNotExists () {
 	.SYNOPSIS
 	Disables Windows Update service if Atera service is not present in the system
 	#>
+
+	Write-Output("[*] Disable Windows Update if Atera does not exist")
+
 	$ateraRegistryKey = $null
 	$winUpdateService = $null
 	$ateraService = $null
 
-	# Get registry settings for Atera Agent
-	$ateraRegistryKey = Get-Item "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent" -ErrorAction SilentlyContinue
-	# Get Atera servive if exists
-	$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-	try {
-		# Checking if atera is present
+	# Check if atera is already installed with 15 second timeout
+	for ($i = 0; $i -lt 30; $i++) {
+		# Get registry settings for Atera Agent
+		$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
+		
+		# Get Atera service if exists
+		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+
 		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
 			Write-Output("[+] Atera detected - nothing to do.")
 			Write-Output("[+] Registery keys check : $ateraRegistryKey")
+			return
 		}
-		else {
-			Write-Output("[*] ALERT : ATERA NOT FOUND!! DISABLING WINDOWSUPDATE SERVICE!!!")
-			$winUpdateService = Get-Service -Name "wuauserv" -ErrorAction SilentlyContinue
+		Start-Sleep -Milliseconds 500
+	}
+	try {
+		Write-Output("[!] ALERT : ATERA NOT FOUND!! DISABLING WINDOWSUPDATE SERVICE!!!")
+		$winUpdateService = Get-Service -Name "wuauserv" -ErrorAction SilentlyContinue
 
-			Write-Output("[*] Stopping windows update service")
-			$winUpdateService | Stop-Service -Force -ErrorAction SilentlyContinue
-			Write-Output("[+] $($winUpdateService.DisplayName) service stopped")
+		Write-Output("[*] Stopping windows update service")
+		$winUpdateService | Stop-Service -Force -ErrorAction SilentlyContinue
+		Write-Output("[+] $($winUpdateService.DisplayName) service stopped")
 
-			Write-Output("[*] Disabling windows update service")
-			$winUpdateService | Set-Service -StartupType "Disabled"
-			Write-Output("[+] $($winUpdateService.DisplayName) service disabled")
+		Write-Output("[*] Disabling windows update service")
+		$winUpdateService | Set-Service -StartupType "Disabled"
+		Write-Output("[+] $($winUpdateService.DisplayName) service disabled")
 
-			
 
-			<#
-			CHECK if 'BITS' and 'DoSvc' has to be disabled here as well
-			#>
-		}
+
+		<#
+		CHECK if 'BITS' and 'DoSvc' has to be disabled here as well
+		#>
 	} catch {
 		Write-Error "[-] $($_.Exception.Message)"
 	}
@@ -82,17 +89,20 @@ function AteraInstall () {
 		$ateraRegistryKey = $null
 		$ateraService = $null
 
-		# Get registry settings for Atera Agent
-		$ateraRegistryKey = Get-Item "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent" -ErrorAction SilentlyContinue
-		
-		# Get Atera service if exists
-		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-		
-		# Checking if atera is present before installation
-		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
-			Write-Output("[+] Atera detected - nothing to do.")
-			Write-Output("[+] Registery keys check : $ateraRegistryKey")
-			return
+		# Check if atera is already installed with 15 second timeout
+		for ($i = 0; $i -lt 30; $i++) {
+			# Get registry settings for Atera Agent
+			$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
+			
+			# Get Atera service if exists
+			$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+	
+			if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
+				Write-Output("[+] Atera detected - nothing to do.")
+				Write-Output("[+] Registery keys check : $ateraRegistryKey")
+				return
+			}
+			Start-Sleep -Milliseconds 500
 		}
 
 		# Get ControllerId from database EZ360Objects
@@ -160,7 +170,23 @@ function AteraInstall () {
 				# Start Atera installer with site ID 1 "general" site
 				& '.\atera.exe' '1'
 			}
-			Write-Output('[+] Atera installed')
+
+			# Post check if atera is installed with 15 second timeout
+			# kill leftover process if found
+			for ($i = 0; $i -lt 30; $i++) {
+				# Get registry settings for Atera Agent
+				$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
+				
+				# Get Atera service if exists
+				$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+		
+				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
+					Write-Output('[+] Atera installed')
+					Stop-Process -Name 'atera' -Force -ErrorAction Continue
+					return
+				}
+				Start-Sleep -Milliseconds 500
+			}
 		} else {
 			Write-Error -Message "[-] Hostname not set to VDMS standard"
 		}
@@ -243,5 +269,5 @@ DisableWinUpdateIfAteraNotExists
 DisableOBEE
 
 # TODO
-validateWindowsAccounts
-setTreeACLS
+# validateWindowsAccounts
+# setTreeACLS
