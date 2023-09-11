@@ -46,7 +46,7 @@ function DisableWinUpdateIfAteraNotExists () {
 	for ($i = 0; $i -lt 30; $i++) {
 		# Get registry settings for Atera Agent
 		$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
-		
+
 		# Get Atera service if exists
 		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
 
@@ -93,10 +93,10 @@ function AteraInstall () {
 		for ($i = 0; $i -lt 30; $i++) {
 			# Get registry settings for Atera Agent
 			$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
-			
+
 			# Get Atera service if exists
 			$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-	
+
 			if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
 				Write-Output("[+] Atera detected - nothing to do.")
 				Write-Output("[+] Registery keys check : $ateraRegistryKey")
@@ -123,7 +123,7 @@ function AteraInstall () {
 		WHERE LC.Status = 'Y'
 '@
 		$controllerModel = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerModelQuery -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -QueryTimeout 30).name
-		
+
 		# Set .NET TLS for Atera
 		$dotnetTlsVersionPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\.NETFramework\v4.0.30319'
 		$getKey = Get-ItemProperty -Path $dotnetTlsVersionPath -Name SystemDefaultTlsVersions -ErrorAction SilentlyContinue
@@ -146,7 +146,7 @@ function AteraInstall () {
 		# Check if folder for downloads exists
 		Set-Location C:
 		$ateraDownloadPath = 'C:\ProgramData\DTiQ\TaskScheduler\ateraInstall'
-		
+
 		if ((Test-Path $ateraDownloadPath) -eq $false) {
 			Write-Output("[*] Creating directory : $($ateraDownloadPath)")
 			New-Item $ateraDownloadPath -ItemType Directory -Force | Out-Null
@@ -176,10 +176,10 @@ function AteraInstall () {
 			for ($i = 0; $i -lt 30; $i++) {
 				# Get registry settings for Atera Agent
 				$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
-				
+
 				# Get Atera service if exists
 				$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-		
+
 				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
 					Write-Output('[+] Atera installed')
 					Stop-Process -Name 'atera' -Force -ErrorAction Continue
@@ -211,7 +211,7 @@ function SetHostname () {
 '@
 		$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System').ControllerId
 		[System.Data.SqlClient.SqlConnection]::ClearAllPools()
-		
+
 		# Check if hostname matches VDMS standard
 		if ($env:COMPUTERNAME -eq "VDMS-$controllerId") {
 			Write-Output('[+] Hostname already changed')
@@ -262,11 +262,18 @@ function DisableOBEE () {
 	}
 }
 
+function pingAllow () {
+	Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Datagram-Out)' -Action Allow -ErrorAction Continue
+	Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Name-Out)' -Action Allow -ErrorAction Continue
+	Set-NetFirewallRule -DisplayName 'File and Printer Sharing (Echo Request - ICMPv4-In)' -Profile Any -ErrorAction Continue
+}
+
 blockWin11Upgrade
 SetHostname
 AteraInstall
 DisableWinUpdateIfAteraNotExists
 DisableOBEE
+pingAllow
 
 # TODO
 # validateWindowsAccounts
