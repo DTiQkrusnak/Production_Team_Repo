@@ -285,9 +285,9 @@ function pingAllow () {
 function removeLegacyComponents () {
 	Write-Output('[*] Remove Legacy Components')
 	#Check migration status
-	$isMigratedVS = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\WOW6432Node\EZUniverse Inc.\EZVideoServer' -Name 'ConfigurationManager' -ErrorAction SilentlyContinue
-	$isMigratedEH = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\WOW6432Node\EZUniverse Inc.\EZEventHandler' -Name 'ConfigurationManager' -ErrorAction SilentlyContinue
-	
+	$isMigratedVS = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\WOW6432Node\EZUniverse Inc.\EZVideoServer'-ErrorAction SilentlyContinue).ConfigurationManager
+	$isMigratedEH = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\WOW6432Node\EZUniverse Inc.\EZEventHandler' -ErrorAction SilentlyContinue).ConfigurationManager
+
 	Write-Output('[*] Checking migration status')
 	if (($isMigratedVS -eq 1) -and ($isMigratedEH -eq 1)) {}
 	else {
