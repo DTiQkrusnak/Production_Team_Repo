@@ -155,7 +155,20 @@ function AteraInstall () {
 		}
 		# Download files
 		Invoke-WebRequest -Uri "https://files-us-ps2.go360iq.com/_Files/Software/Scripts/ateraInstall/atera.exe" -OutFile "$ateraDownloadPath\atera.exe" -TimeoutSec 30
+		$ateraSha256Hash = '01CE10FF63996274B1D2DBACA0E91481BC0421D5C6F869CF5FF4C46ECED432D6'
+		if ((Get-FileHash -Algorithm SHA256 -LiteralPath "$ateraDownloadPath\atera.exe").Hash -ne $ateraSha256Hash) {
+			Remove-Item -LiteralPath "$ateraDownloadPath\atera.exe"
+			Write-Error('[-] Atera.exe hash not matching')
+			return
+		}
+
 		Invoke-WebRequest -Uri "https://files-us-ps2.go360iq.com/_Files/Software/Scripts/ateraInstall/setup_final.msi" -OutFile "$ateraDownloadPath\setup_final.msi" -TimeoutSec 30
+		$setupFinalSha256Hash = 'A7C28AF0C979E5C28DE750D018E3A6B2158DD7321E56FF5A33E856E76F659457'
+		if ((Get-FileHash -Algorithm SHA256 -LiteralPath "$ateraDownloadPath\setup_final.msi").Hash -ne $setupFinalSha256Hash) {
+			Remove-Item -LiteralPath "$ateraDownloadPath\setup_final.msi"
+			Write-Error('[-] Setup_Final.msi hash not matching')
+			return
+		}
 		Write-Output("[+] Atera files downloaded")
 
 
@@ -396,6 +409,10 @@ function removeLegacyComponents () {
 	Write-Output('[+] Finished removing Legacy components')
 }
 
+function installDotNet () {
+
+}
+
 blockWin11Upgrade
 SetHostname
 AteraInstall
@@ -403,6 +420,7 @@ DisableWinUpdateIfAteraNotExists
 DisableOBEE
 pingAllow
 removeLegacyComponents
+installDotNet
 
 # TODO
 # validateWindowsAccounts
