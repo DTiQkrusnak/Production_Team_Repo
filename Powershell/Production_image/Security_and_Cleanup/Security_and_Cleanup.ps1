@@ -4,6 +4,7 @@ function blockWin11Upgrade () {
 	.SYNOPSIS
 	Blocks Windows 11 upgrade prompts and version on 21H2
 	#>
+	Write-Output('[*] Block Win11 Upgrade')
 
 	$regPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
 
@@ -22,7 +23,7 @@ function blockWin11Upgrade () {
 			Write-Output('[+] block Windows 11 completed')
 		}
 		else {
-			Write-Output("[-] Script is executing fix only on Windows 10, your Windows : $system")
+			Write-Output("[-] function is executing fix only on Windows 10, your Windows : $system")
 		}
 	} catch {
 		Write-Error "[-] $($_.Exception.Message)"
