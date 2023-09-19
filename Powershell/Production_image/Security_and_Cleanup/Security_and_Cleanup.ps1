@@ -195,7 +195,7 @@ function AteraInstall () {
 
 				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
 					Write-Output('[+] Atera installed')
-					Stop-Process -Name 'atera' -Force -ErrorAction Continue
+					Get-Process -Name 'atera'  -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue
 					return
 				}
 				Start-Sleep -Milliseconds 500
