@@ -1,5 +1,4 @@
 [Net.ServicePointManager]::SecurityProtocol = 'TLS12', 'SSL3'
-4
 function blockWin11Upgrade () {
 	<#
 	.SYNOPSIS
@@ -263,9 +262,134 @@ function DisableOBEE () {
 }
 
 function pingAllow () {
+	Write-Output('[*] Ping Allow')
 	Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Datagram-Out)' -Action Allow -ErrorAction Continue
 	Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Name-Out)' -Action Allow -ErrorAction Continue
 	Set-NetFirewallRule -DisplayName 'File and Printer Sharing (Echo Request - ICMPv4-In)' -Profile Any -ErrorAction Continue
+	Write-Output('[+] Ping Allow completed')
+}
+
+function removeLegacyComponents () {
+	Write-Output('[*] Remove Legacy Components')
+	#Check migration status
+	$isMigratedVS = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\WOW6432Node\EZUniverse Inc.\EZVideoServer' -Name 'ConfigurationManager' -ErrorAction SilentlyContinue
+	$isMigratedEH = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\WOW6432Node\EZUniverse Inc.\EZEventHandler' -Name 'ConfigurationManager' -ErrorAction SilentlyContinue
+	
+	Write-Output('[*] Checking migration status')
+	if (($isMigratedVS -eq 1) -and ($isMigratedEH -eq 1)) {}
+	else {
+		Write-Output('[-] Site is not migrated skipping removal of Legacy components.')
+		return
+	}
+
+	# Initialize function if migrated
+	$xmlRuntimeToRemove = @(
+		'EZController', #Includes EZController.SystemSetup and .Registration
+		'EZConnect', #Includes EZConnect.SystemVerification
+		'360iQ.v.3.3',
+		'Subway Controller',
+		'SubwaySurveilance'
+	)
+
+	$appsToRemove = @(
+		'EZController.Registration',
+		'StretchDiagnosticTool',
+		'EZConnect.SystemVerification',
+		'EZVideoPlayer',
+		'ECM',
+		'EZController.SystemSetup'
+	)
+
+	$servicesToRemove = @(
+		'EZUpdateCenter',
+		'EZCSNetwork',
+		'EZSQLReplicator',
+		'EZMessageLog',
+		'SubwayUpdateCenter'
+	)
+
+	# EZSensors Server is installed per User (Support) and cannot be uninstalled from SYSTEM context
+	# We have decided to just disable service
+	
+	$removeMSI = @(
+		'EZSensors Server'
+	)
+
+	$allApplications = $xmlRuntimeToRemove + $appsToRemove + $servicesToRemove
+	# Get All app packages that have Quiet Uninstall string
+	$RegKeys = @(
+		'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\'
+		'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\'
+	)
+	
+	# Get regular programs
+	$appObjects = $RegKeys |
+	Get-ChildItem |
+	Get-ItemProperty
+
+	Write-Output('[*] Stopping SystemWatcher, SQLReplicator, EZSensor Server and UpdateCenters')
+	Stop-Service -Force -ErrorAction SilentlyContinue -Name (
+		'EZSQLReplicator','EZSystemWatcher', 'EZSensorsServer','SubwayUpdateCenter','EZUpdateCenter')
+
+	if (Get-Service -Name 'EZSensors Server' -ErrorAction SilentlyContinue) {
+		Set-Service -Name 'EZSensors Server' -StartupType Disabled
+		Write-Output('[+] Disabled EZSensors Server')
+	}
+	
+
+
+	# Get MSI programs
+	foreach ($name in $removeMSI) {
+		Write-Output("[*] Uninstalling $($name)")
+		
+		$appObjects | 
+		Where-Object { $_.DisplayName -match $name} | 
+		Foreach-Object { 
+			$path = $_.UninstallString -split ' '
+			try {
+				Start-Process $path[0] -ArgumentList ($path[1], '/qn') -Wait -NoNewWindow -ErrorAction Stop
+				Write-Output("[+] Uninstalled $($_.DisplayName)")
+			} catch {
+				Write-Error("[-] $($name) Timed out")
+				Get-Process -Name 'msiexec.exe' -ErrorAction SilentlyContinue | Stop-Process -Force
+			}
+		}
+	}
+
+	foreach ($name in $allApplications) {
+		$appObjects | 
+		Where-Object { $_.DisplayName -match $name} | 
+		Foreach-Object { 
+			$path = $_.QuietUninstallString -split '\"'
+			# ARGUMENTS EXPLANATION
+			# $path[1] # Get path from QuietUninstallString
+			# $($path[2..($path.Length -2)])) # Get arguments from QuietUninstallString
+
+			# Skip already removed applications
+			if (-not(Test-Path -LiteralPath $path[1])) {
+				Write-Output("[+] $($_.DisplayName) already removed")
+				Continue
+			}
+			Write-Output("[*] Uninstalling $($_.DisplayName)")
+
+			try {
+				$proc = Start-Process $path[1] -ArgumentList $($path[2..($path.Length -2)]) -PassThru -NoNewWindow
+				$proc | Wait-Process -Timeout 40 -ErrorAction Stop
+				Write-Output("[+] Uninstalled $($_.DisplayName)")
+			} catch {
+				Write-Error("[-] $($path[1]) Timed out on $($proc)")
+				$proc | Stop-Process -Force
+				Get-Process -Name '*.tmp' -Force -ErrorAction SilentlyContinue | Stop-Process -Force
+			}
+		}
+	}
+
+	if (Get-Service -Name 'MSSQL$SQLEXPRESS' -ErrorAction SilentlyContinue) {
+		Stop-Service -Name 'MSSQL$SQLEXPRESS' -Force
+		Set-Service -Name 'MSSQL$SQLEXPRESS' -StartupType Disabled
+		Write-Output('[+] Disabled legacy SQLSERVER')
+	}
+	Write-Output('[+] Finished removing Legacy components')
 }
 
 blockWin11Upgrade
@@ -274,6 +398,7 @@ AteraInstall
 DisableWinUpdateIfAteraNotExists
 DisableOBEE
 pingAllow
+removeLegacyComponents
 
 # TODO
 # validateWindowsAccounts
