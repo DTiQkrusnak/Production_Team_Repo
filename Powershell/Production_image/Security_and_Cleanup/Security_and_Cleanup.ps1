@@ -385,9 +385,13 @@ function removeLegacyComponents () {
 	}
 
 	if (Get-Service -Name 'MSSQL$SQLEXPRESS' -ErrorAction SilentlyContinue) {
-		Stop-Service -Name 'MSSQL$SQLEXPRESS' -Force
-		Set-Service -Name 'MSSQL$SQLEXPRESS' -StartupType Disabled
-		Write-Output('[+] Disabled legacy SQLSERVER')
+		try {
+			Stop-Service -Name 'MSSQL$SQLEXPRESS' -Force
+			Set-Service -Name 'MSSQL$SQLEXPRESS' -StartupType Disabled
+			Write-Output('[+] Disabled legacy SQLSERVER')
+		} catch {
+			Write-Error "[-] $($_.Exception.Message)"
+		}
 	}
 	Write-Output('[+] Finished removing Legacy components')
 }
