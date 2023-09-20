@@ -85,6 +85,16 @@ function AteraInstall () {
 	Installs Atera service when VDMS-XXXXXXX hostname matches
 	#>
 	Write-Output("[*] Atera Install")
+
+	$foldersHashTable = @{
+		'4011' = '7'; '4001' = '8'; '4002' = '9'; '4003' = '10';'4004' = '11';'4005' = '12';'4006' = '13';'4007' = '14';
+		'4008' = '15';'4009' = '16';'4010' = '17';'4012' = '18';'4013' = '19';'4014' = '20';'4015' = '21';'4016' = '22';
+		'4017' = '23';'4018' = '24';'4019' = '25';'4020' = '26';'4021' = '27';'4022' = '28';'4023' = '29';'4024' = '30';
+		'4025' = '31';'4026' = '32';'4027' = '33';'4028' = '34';'4029' = '35';'4030' = '36';'4031' = '37';'4032' = '38';
+		'4033' = '39';'4034' = '40';'4035' = '41';'4036' = '42';'4037' = '43';'4038' = '44';'4039' = '45';'4040' = '46';
+		'4041' = '47';'4042' = '48';'4043' = '49';'4044' = '50';'4045' = '51';'4080' = '52';
+		}
+
 	try {
 		$ateraRegistryKey = $null
 		$ateraService = $null
@@ -154,34 +164,41 @@ function AteraInstall () {
 		} else {
 			Write-Output('[+] Download path exists.')
 		}
-		# Download files
-		Invoke-WebRequest -Uri "https://files-us-ps2.go360iq.com/_Files/Software/Scripts/ateraInstall/atera.exe" -OutFile "$ateraDownloadPath\atera.exe" -TimeoutSec 30
-		$ateraSha256Hash = '01CE10FF63996274B1D2DBACA0E91481BC0421D5C6F869CF5FF4C46ECED432D6'
-		if ((Get-FileHash -Algorithm SHA256 -LiteralPath "$ateraDownloadPath\atera.exe").Hash -ne $ateraSha256Hash) {
-			Remove-Item -LiteralPath "$ateraDownloadPath\atera.exe"
-			Write-Error('[-] Atera.exe hash not matching')
-			return
-		}
-
-		Invoke-WebRequest -Uri "https://files-us-ps2.go360iq.com/_Files/Software/Scripts/ateraInstall/setup_final.msi" -OutFile "$ateraDownloadPath\setup_final.msi" -TimeoutSec 30
-		$setupFinalSha256Hash = 'A7C28AF0C979E5C28DE750D018E3A6B2158DD7321E56FF5A33E856E76F659457'
-		if ((Get-FileHash -Algorithm SHA256 -LiteralPath "$ateraDownloadPath\setup_final.msi").Hash -ne $setupFinalSha256Hash) {
-			Remove-Item -LiteralPath "$ateraDownloadPath\setup_final.msi"
-			Write-Error('[-] Setup_Final.msi hash not matching')
-			return
-		}
-		Write-Output("[+] Atera files downloaded")
-
 
 		# Check if hostname is set to VDMS standard
 		if ($env:COMPUTERNAME -eq "VDMS-$controllerId") {
 			Set-Location -Path $ateraDownloadPath
-			if ($controllerModel -eq "VDMS Summit") {
+			# Get CCS hub ID
+			$ccsHubAddress = (Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -ErrorAction SilentlyContinue).ControllerInterfaceURL
+			if ($null -ne $ccsHubAddress) {
+				$ccsHubId = ([regex]::Matches($ccsHubAddress, '(\d\d\d\d)')).Value
+			}
+
+
+			if ($controllerModel -eq 'VDMS Summit') {
+				# Download files
+				Invoke-WebRequest -Uri "https://files-us-ps2.go360iq.com/_Files/Software/Scripts/ateraInstall/ateraSummit.msi" -OutFile "$ateraDownloadPath\ateraSummit.msi" -TimeoutSec 30
+				$ateraSha256Hash = '8C180892A856A89A7EB43B76F1AB51690B5FC1B4839E09A6D26E8DFB53C8DDF7'
+				if ((Get-FileHash -Algorithm SHA256 -LiteralPath "$ateraDownloadPath\atera.exe").Hash -ne $ateraSha256Hash) {
+					Remove-Item -LiteralPath "$ateraDownloadPath\ateraSummit.msi"
+					Write-Error('[-] ateraSummit.msi hash not matching')
+					return
+				}
+				Write-Output('[+] Atera files downloaded')
 				#Start Atera installer with site ID 12 "VDMS-Summit" site
-				& '.\atera.exe' '12'
+				msiexec /i setup.msi /qn  IntegratorLogin=Atera.Update@dtiq.com CompanyId=12 AccountId=0013z00002tEY2hAAG
 			} else {
-				# Start Atera installer with site ID 1 "general" site
-				& '.\atera.exe' '1'
+				# Download files
+				Invoke-WebRequest -Uri "https://files-us-ps2.go360iq.com/_Files/Software/Scripts/ateraInstall/atera.msi" -OutFile "$ateraDownloadPath\atera.msi" -TimeoutSec 30
+				$ateraSha256Hash = '1CB36D8A6F037813FE22237AD027EEED7951F1510774D773CCCC6D5A6AA8EF62'
+				if ((Get-FileHash -Algorithm SHA256 -LiteralPath "$ateraDownloadPath\atera.msi").Hash -ne $ateraSha256Hash) {
+					Remove-Item -LiteralPath "$ateraDownloadPath\atera.msi"
+					Write-Error('[-] atera.msi hash not matching')
+					return
+				}
+				Write-Output("[+] Atera files downloaded")
+				# Start Atera installer with site ID 22 "PRODUCTION" site
+				msiexec /i atera.msi /qn  IntegratorLogin=Atera.Update@dtiq.com CompanyId=22 AccountId=0013z00002tEY2hAAG FolderId=$($foldersHashTable[$ccsHubId])
 			}
 
 			# Post check if atera is installed with 15 second timeout
@@ -196,6 +213,7 @@ function AteraInstall () {
 				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
 					Write-Output('[+] Atera installed')
 					Get-Process -Name 'atera'  -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue
+					Get-Process -Name 'msiexec' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue
 					return
 				}
 				Start-Sleep -Milliseconds 500
