@@ -295,9 +295,24 @@ function DisableOBEE () {
 
 function pingAllow () {
 	Write-Output('[*] Ping Allow')
-	Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Datagram-Out)' -Action Allow -ErrorAction Continue
-	Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Name-Out)' -Action Allow -ErrorAction Continue
-	Set-NetFirewallRule -DisplayName 'File and Printer Sharing (Echo Request - ICMPv4-In)' -Profile Any -ErrorAction Continue
+	try {
+		Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Datagram-Out)' -Action Allow -ErrorAction Stop
+		Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Name-Out)' -Action Allow -ErrorAction Stop
+		Set-NetFirewallRule -DisplayName 'File and Printer Sharing (Echo Request - ICMPv4-In)' -Profile Any -ErrorAction Stop
+	} catch {
+		$firewallRulesAction = @(
+			"Network Discovery (NB-Datagram-Out)",
+			"Network Discovery (NB-Name-Out)"
+		)
+
+		$firewallRulesProfile = @(
+			"File and Printer Sharing (Echo Request - ICMPv4-In)"
+		)
+		
+		netsh advfirewall firewall set rule name=$($firewallRulesAction[0]) new action=Deny
+		netsh advfirewall firewall set rule name=$($firewallRulesAction[1]) new action=Allow
+		netsh advfirewall firewall set rule name=$($firewallRulesProfile[0]) new profile=Any
+	}
 	Write-Output('[+] Ping Allow completed')
 }
 
