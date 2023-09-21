@@ -218,8 +218,14 @@ function AteraInstall () {
 				}
 				Start-Sleep -Milliseconds 500
 			}
+		} elseif ($null -ne $script:isRenameSuccessful) {
+			if ($script:isRenameSuccessful.NewComputerName -eq "VDMS-$controllerId") {
+				Write-Output('[*] Restart required to set hostname before installing Atera')
+			} else {
+				Write-Error('[-] Cannot verify if SetHostname succeded')
+			}
 		} else {
-			Write-Error -Message "[-] Hostname not set to VDMS standard"
+			Write-Error('[-] Hostname not set to VDMS standard')
 		}
 	} catch {
 		Write-Error "[-] $($_.Exception.Message)"
@@ -248,7 +254,7 @@ function SetHostname () {
 			Write-Output('[+] Hostname already changed')
 			return
 		} else {
-			Rename-Computer -NewName "VDMS-$controllerID"
+			$script:isRenameSuccessful = Rename-Computer -NewName "VDMS-$controllerID" -PassThru
 			Write-Output('[+] Set hostname completed')
 		}
 	} catch {
@@ -308,7 +314,7 @@ function pingAllow () {
 		$firewallRulesProfile = @(
 			"File and Printer Sharing (Echo Request - ICMPv4-In)"
 		)
-		
+
 		netsh advfirewall firewall set rule name=$($firewallRulesAction[0]) new action=Deny
 		netsh advfirewall firewall set rule name=$($firewallRulesAction[1]) new action=Allow
 		netsh advfirewall firewall set rule name=$($firewallRulesProfile[0]) new profile=Any
