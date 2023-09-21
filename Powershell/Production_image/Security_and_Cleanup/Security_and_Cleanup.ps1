@@ -423,16 +423,23 @@ function removeLegacyComponents () {
 				Write-Output("[+] $($_.DisplayName) already removed")
 				Continue
 			}
+			# Skip applications with missing .dat file
+			$datFilePath = $path[1]
+            $datFilePath = $datFilePath.Replace('.exe', '.dat')
+			if (-not(Test-Path -LiteralPath $datFilePath)) {
+				Write-Error("[-] Missing file $($datFilePath), skipping")
+				Continue
+			}
 			Write-Output("[*] Uninstalling $($_.DisplayName)")
 
 			try {
 				$proc = Start-Process $path[1] -ArgumentList $($path[2..($path.Length -2)]) -PassThru -NoNewWindow
-				$proc | Wait-Process -Timeout 40 -ErrorAction Stop
+				$proc | Wait-Process -Timeout 10 -ErrorAction Stop
 				Write-Output("[+] Uninstalled $($_.DisplayName)")
 			} catch {
 				Write-Error("[-] $($path[1]) Timed out on $($proc)")
 				$proc | Stop-Process -Force
-				Get-Process -Name '*.tmp' -Force -ErrorAction SilentlyContinue | Stop-Process -Force
+				Get-Process -Name '*.tmp' -ErrorAction SilentlyContinue | Stop-Process -Force
 			}
 		}
 	}
