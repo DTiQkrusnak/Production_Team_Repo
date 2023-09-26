@@ -542,15 +542,38 @@ function installWazuh () {
 	Write-Output('[+] Wazuh install finished')
 }
 
-blockWin11Upgrade
-SetHostname
-AteraInstall
-DisableWinUpdateIfAteraNotExists
-DisableOBEE
-pingAllow
-removeLegacyComponents
-installDotNet
 
-# TODO
-# validateWindowsAccounts
-# setTreeACLS
+function runAll () {
+	function createJobScriptBlock ([string[]] $jobs) {
+        $output = $null
+        foreach ($job in $jobs) {
+                $output += @"
+`$function:$job = `$using:function:$job
+Write-Output('$job')
+$job
+
+"@}
+        
+    	return [System.Management.Automation.ScriptBlock]::Create($output)
+	}
+
+	$jobs = @()
+	$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'blockWin11Upgrade') -Name 'blockWin11Upgrade'
+	$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'SetHostname', 'AteraInstall', 'DisableWinUpdateIfAteraNotExists') -Name 'AteraInstall'
+	$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'DisableOBEE') -Name 'DisableOBEE'
+	$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'PingAllow') -Name 'PingAllow'
+	$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'removeLegacyComponents') -Name 'removeLegacyComponents'
+	$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'installWazuh') -Name 'installWazuh'
+
+	Write-Output('[+] Jobs are running')
+
+	While((Get-Job).State -eq 'Running') {
+		Get-Job | Where-Object { $_.State -eq 'Completed' -and $_.HasMoreData} | Receive-Job
+		start-sleep -seconds 1
+	}
+	Get-Job | Where-Object { $_.State -eq 'Completed' -and $_.HasMoreData} | Receive-Job
+	$jobs | Remove-Job
+	Write-Output('[+] All jobs finished')
+}
+
+runAll
