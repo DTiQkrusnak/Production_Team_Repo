@@ -49,8 +49,8 @@ function DisableWinUpdateIfAteraNotExists () {
 
 		# Get Atera service if exists
 		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-
-		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
+		$ateraProcess = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and ($null -ne $ateraProcess)) {
 			Write-Output("[+] Atera detected - nothing to do.")
 			Write-Output("[+] Registery keys check : $ateraRegistryKey")
 			return
@@ -87,12 +87,12 @@ function AteraInstall () {
 	Write-Output("[*] Atera Install")
 
 	$foldersHashTable = @{
-		'4011' = '7'; '4001' = '8'; '4002' = '9'; '4003' = '10';'4004' = '11';'4005' = '12';'4006' = '13';'4007' = '14';
-		'4008' = '15';'4009' = '16';'4010' = '17';'4012' = '18';'4013' = '19';'4014' = '20';'4015' = '21';'4016' = '22';
-		'4017' = '23';'4018' = '24';'4019' = '25';'4020' = '26';'4021' = '27';'4022' = '28';'4023' = '29';'4024' = '30';
-		'4025' = '31';'4026' = '32';'4027' = '33';'4028' = '34';'4029' = '35';'4030' = '36';'4031' = '37';'4032' = '38';
-		'4033' = '39';'4034' = '40';'4035' = '41';'4036' = '42';'4037' = '43';'4038' = '44';'4039' = '45';'4040' = '46';
-		'4041' = '47';'4042' = '48';'4043' = '49';'4044' = '50';'4045' = '51';'4080' = '52';
+		'1011' = '7'; '1001' = '8'; '1002' = '9'; '1003' = '10';'1004' = '11';'1005' = '12';'1006' = '13';'1007' = '14';
+		'1008' = '15';'1009' = '16';'1010' = '17';'1012' = '18';'1013' = '19';'1014' = '20';'1015' = '21';'1016' = '22';
+		'1017' = '23';'1018' = '24';'1019' = '25';'1020' = '26';'1021' = '27';'1022' = '28';'1023' = '29';'1024' = '30';
+		'1025' = '31';'1026' = '32';'1027' = '33';'1028' = '34';'1029' = '35';'1030' = '36';'1031' = '37';'1032' = '38';
+		'1033' = '39';'1034' = '40';'1035' = '41';'1036' = '42';'1037' = '43';'1038' = '44';'1039' = '45';'1040' = '46';
+		'1041' = '47';'1042' = '48';'1043' = '49';'1044' = '50';'1045' = '51';'1080' = '52';
 		}
 
 	try {
@@ -169,9 +169,14 @@ function AteraInstall () {
 		if ($env:COMPUTERNAME -eq "VDMS-$controllerId") {
 			Set-Location -Path $ateraDownloadPath
 			# Get CCS hub ID
-			$ccsHubAddress = (Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -ErrorAction SilentlyContinue).ControllerInterfaceURL
-			if ($null -ne $ccsHubAddress) {
-				$ccsHubId = ([regex]::Matches($ccsHubAddress, '(\d\d\d\d)')).Value
+			if ($controllerId.ToString().Length -lt 7) {
+				$AteraFolderIndex = 1001
+			} else {
+				$AteraFolderIndex = [math]::Truncate($controllerId / 1000) + 1
+			}
+
+			if ($null -eq $foldersHashTable[$AteraFolderIndex]) {
+				$foldersHashTable[$AteraFolderIndex] = '52'
 			}
 
 
@@ -198,7 +203,7 @@ function AteraInstall () {
 				}
 				Write-Output("[+] Atera files downloaded")
 				# Start Atera installer with site ID 22 "PRODUCTION" site
-				msiexec /i atera.msi /qn  IntegratorLogin=Atera.Update@dtiq.com CompanyId=22 AccountId=0013z00002tEY2hAAG FolderId=$($foldersHashTable[$ccsHubId])
+				msiexec /i atera.msi /qn  IntegratorLogin=Atera.Update@dtiq.com CompanyId=22 AccountId=0013z00002tEY2hAAG FolderId=$($foldersHashTable[$AteraFolderIndex])
 			}
 
 			# Post check if atera is installed with 15 second timeout
@@ -209,8 +214,8 @@ function AteraInstall () {
 
 				# Get Atera service if exists
 				$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-
-				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
+				$ateraProcess = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and ($null -ne $ateraProcess)) {
 					Write-Output('[+] Atera installed')
 					Get-Process -Name 'atera'  -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue
 					Get-Process -Name 'msiexec' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue
@@ -400,10 +405,12 @@ function removeLegacyComponents () {
 		Foreach-Object { 
 			$path = $_.UninstallString -split ' '
 			try {
-				Start-Process $path[0] -ArgumentList ($path[1], '/qn') -Wait -NoNewWindow -ErrorAction Stop
+				$proc = Start-Process $path[0] -ArgumentList ($path[1], '/qn') -PassThru -NoNewWindow
+				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Wait-Process -Timeout 10
 				Write-Output("[+] Uninstalled $($_.DisplayName)")
 			} catch {
 				Write-Error("[-] $($name) Timed out")
+				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Stop-Process -Force
 				Get-Process -Name 'msiexec.exe' -ErrorAction SilentlyContinue | Stop-Process -Force
 			}
 		}
@@ -434,7 +441,7 @@ function removeLegacyComponents () {
 
 			try {
 				$proc = Start-Process $path[1] -ArgumentList $($path[2..($path.Length -2)]) -PassThru -NoNewWindow
-				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Stop-Process -Force
+				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Wait-Process -Timeout 10
 				Write-Output("[+] Uninstalled $($_.DisplayName)")
 			} catch {
 				Write-Error("[-] $($path[1]) Timed out on $($proc)")
@@ -457,7 +464,76 @@ function removeLegacyComponents () {
 }
 
 function installDotNet () {
+	Write-Output('[*] Install .NET')
+	if([System.Environment]::Is64BitOperatingSystem) {
+		Write-Output('[+] x64 system')
 
+		$dotnetDownloadPath = 'C:\ProgramData\DTiQ'
+		if (!(Test-Path $dotnetDownloadPath)) {
+			New-Item -Force $dotnetDownloadPath -ItemType Directory | Out-Null
+		}
+		Write-Output("[+] $dotnetDownloadPath verified")
+		class FileProperties {
+			[string]$name
+			[string]$version
+			[string]$url
+			[string]$checksum
+		
+			fileProperties([string]$name, [string]$version, [string]$url, [string]$checksum) {
+				$this.Name = $name
+				$this.version = $version
+				$this.Url = $url
+				$this.Checksum = $checksum
+			}
+		}
+		
+		$dotnetVersionsToDownload = [FileProperties]::new(
+			"ndp48-x86-x64-allos-enu.exe",
+			"4.8.03761",
+			"https://download.visualstudio.microsoft.com/download/pr/2d6bb6b2-226a-4baa-bdec-798822606ff1/8494001c276a4b96804cde7829c04d7f/ndp48-x86-x64-allos-enu.exe",
+			"FFB6C226AF4E5C8FFA7210D5115701883ABF12A8B1CBAE6E08122FB94DD93763468BFF5B00060EABEF19C147B0A4D8063DDE318D2B928CE397C58F7949736C5F"
+		), [FileProperties]::new(
+			"windowsdesktop-runtime-6.0.15-win-x64.exe",
+			"6.0.15",
+			"https://download.visualstudio.microsoft.com/download/pr/513d13b7-b456-45af-828b-b7b7981ff462/edf44a743b78f8b54a2cec97ce888346/windowsdesktop-runtime-6.0.15-win-x64.exe",
+			"62412c45ba5ebf89b0ea2c3d9dcce3a7f05198d4db368f63956f7ae58b368baa059343a2de39d24e20ffe126145f31c72131914cb2793f002921a975e69c3bb4"
+		)
+
+		# Gather all installed versions of .NET from registry
+		$dotnetVersionsRegistry = (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
+		$dotnetVersionsRegistry += (Get-ChildItem 'HKLM:\SOFTWARE\dotnet' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
+		Set-Location -LiteralPath $dotnetDownloadPath
+		foreach ($item in $dotnetVersionsToDownload) {
+			if ($dotnetVersionsRegistry -contains $item.version) {
+				Continue
+			}
+			Write-Output("[*] Downloading $($item.Name)")
+			try {
+				Invoke-RestMethod -Uri $item.Url -OutFile $item.Name
+				Write-Output("[+] Download of $($item.Name) comleted")
+			} catch {
+				Write-Output("[-] Download of $($item.Name) failure")
+			}
+			
+			if ((Get-FileHash -Algorithm SHA512 -Path $item.Name).Hash -ne $item.Checksum) {
+				Remove-Item -Path $item.Name
+				Write-Error("[-] $($item.Name) hash not matching")
+				continue
+			}
+
+			try {
+				Write-Output("[*] Installing $($item.Name)")
+				Start-Process -FilePath $item.Name -ArgumentList ('/q', '/norestart')
+				Write-Output("[+] Installation $($item.Name) running in background")
+			} catch {
+				Write-Error("[-] $($item.Name) installation error")
+				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Stop-Process -Force
+				continue
+			}
+		}
+	} else {
+		Write-Output('[-] x86 system, skipping .NET installlation')
+	}
 }
 
 function installWazuh () {
@@ -545,16 +621,16 @@ function installWazuh () {
 
 function runAll () {
 	function createJobScriptBlock ([string[]] $jobs) {
-        $output = $null
-        foreach ($job in $jobs) {
-                $output += @"
+		$output = $null
+		foreach ($job in $jobs) {
+				$output += @"
 `$function:$job = `$using:function:$job
 Write-Output('$job')
 $job
 
 "@}
-        
-    	return [System.Management.Automation.ScriptBlock]::Create($output)
+		
+		return [System.Management.Automation.ScriptBlock]::Create($output)
 	}
 
 	$jobs = @()
@@ -564,6 +640,8 @@ $job
 	$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'PingAllow') -Name 'PingAllow'
 	$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'removeLegacyComponents') -Name 'removeLegacyComponents'
 	$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'installWazuh') -Name 'installWazuh'
+	#$jobs += Start-Job -ScriptBlock $(createJobScriptBlock -jobs 'installDotNet') -Name 'installDotNet'
+
 
 	Write-Output('[+] Jobs are running')
 
@@ -572,6 +650,10 @@ $job
 		start-sleep -seconds 1
 	}
 	Get-Job | Where-Object { $_.State -eq 'Completed' -and $_.HasMoreData} | Receive-Job
+	foreach ($job in $jobs) {
+		Write-Output($job.Name)
+		Write-Output($($job.PSEndTime - $job.PSBeginTime).TotalSeconds)
+	}
 	$jobs | Remove-Job
 	Write-Output('[+] All jobs finished')
 }
