@@ -26,7 +26,7 @@ function blockWin11Upgrade () {
 			Write-Output("[-] function is executing fix only on Windows 10, your Windows : $system")
 		}
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -75,7 +75,7 @@ function DisableWinUpdateIfAteraNotExists () {
 		CHECK if 'BITS' and 'DoSvc' has to be disabled here as well
 		#>
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -233,7 +233,7 @@ function AteraInstall () {
 			Write-Error('[-] Hostname not set to VDMS standard')
 		}
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -263,7 +263,7 @@ function SetHostname () {
 			Write-Output('[+] Set hostname completed')
 		}
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -280,7 +280,7 @@ function DisableOBEE () {
 		}
 		New-ItemProperty -Path $logonAnimationPath -Name 'EnableFirstLogonAnimation' -Value 0 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 
 	try {
@@ -290,7 +290,7 @@ function DisableOBEE () {
 		}
 		New-ItemProperty -Path $privacyExperiencePath -Name 'DisablePrivacyExperience' -Value 1 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 
 	try {
@@ -300,7 +300,7 @@ function DisableOBEE () {
 		}
 		New-ItemProperty -Path $consumerFeaturesPath -Name 'DisableWindowsConsumerFeatures' -Value 1 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -457,7 +457,7 @@ function removeLegacyComponents () {
 			Set-Service -Name 'MSSQL$SQLEXPRESS' -StartupType Disabled
 			Write-Output('[+] Disabled legacy SQLSERVER')
 		} catch {
-			Write-Error("[-] $($_.Exception.Message)")
+			Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 		}
 	}
 	Write-Output('[+] Finished removing Legacy components')
@@ -592,7 +592,7 @@ function installWazuh () {
 		Invoke-WebRequest -Uri 'https://dtt-it.s3.amazonaws.com/VPN/wazuh-agent.msi' -OutFile $env:tmp\wazuh-agent.msi -ErrorAction Stop
 		Write-Output('[+] Wazuh download completed')
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 		return
 	}
 
