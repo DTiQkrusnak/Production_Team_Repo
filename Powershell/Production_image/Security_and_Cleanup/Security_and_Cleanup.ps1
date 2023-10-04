@@ -1,4 +1,4 @@
-[Net.ServicePointManager]::SecurityProtocol = 'TLS12', 'SSL3'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 function blockWin11Upgrade () {
 	<#
 	.SYNOPSIS
@@ -99,20 +99,22 @@ function AteraInstall () {
 		$ateraRegistryKey = $null
 		$ateraService = $null
 
-		# Check if atera is already installed with 15 second timeout
-		for ($i = 0; $i -lt 30; $i++) {
-			# Get registry settings for Atera Agent
-			$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
+		# Get registry settings for Atera Agent
+		$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
 
-			# Get Atera service if exists
-			$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+		# Get Atera service if exists
+		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+		
+		$ateraExecutablePresentBool = Test-Path -LiteralPath 'C:\Program Files (x86)\ATERA Networks\AteraAgent\AteraAgent.exe'
 
-			if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
-				Write-Output("[+] Atera detected - nothing to do.")
-				Write-Output("[+] Registery keys check : $ateraRegistryKey")
-				return
-			}
-			Start-Sleep -Milliseconds 500
+		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and $ateraExecutablePresentBool -and ($ateraService.Status -eq 'Running')) {
+			Write-Output("[+] Atera detected - nothing to do.")
+			Write-Output("[+] Registery keys check : $ateraRegistryKey")
+			return
+		}
+		elseif (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and !$ateraExecutablePresentBool -and ($ateraService.Status -eq 'Stopped')) {
+			Write-Output('[*] Broken Atera installation detected, wiping config')
+			sc.exe delete AteraAgent
 		}
 
 		# Get ControllerId from database EZ360Objects
@@ -175,8 +177,8 @@ function AteraInstall () {
 				$AteraFolderIndex = [math]::Truncate($controllerId / 1000) + 1
 			}
 
-			if ($null -eq $foldersHashTable[$AteraFolderIndex]) {
-				$foldersHashTable[$AteraFolderIndex] = '52'
+			if ($null -eq $foldersHashTable[$AteraFolderIndex.ToString()]) {
+				$foldersHashTable[$AteraFolderIndex.ToString()] = '52'
 			}
 
 
@@ -203,7 +205,7 @@ function AteraInstall () {
 				}
 				Write-Output("[+] Atera files downloaded")
 				# Start Atera installer with site ID 22 "PRODUCTION" site
-				msiexec /i atera.msi /qn  IntegratorLogin=Atera.Update@dtiq.com CompanyId=22 AccountId=0013z00002tEY2hAAG FolderId=$($foldersHashTable[$AteraFolderIndex])
+				msiexec /i atera.msi /qn  IntegratorLogin=Atera.Update@dtiq.com CompanyId=22 AccountId=0013z00002tEY2hAAG FolderId=$($foldersHashTable[$AteraFolderIndex.ToString()])
 			}
 
 			# Post check if atera is installed with 15 second timeout
@@ -214,8 +216,8 @@ function AteraInstall () {
 
 				# Get Atera service if exists
 				$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-				$ateraProcess = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and ($null -ne $ateraProcess)) {
+				$ateraProcess = Get-Process -Name 'AteraAgent' -ErrorAction SilentlyContinue
+				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and $ateraExecutablePresentBool -and ($ateraService.Status -eq 'Running') -and ($null -ne $ateraProcess)) {
 					Write-Output('[+] Atera installed')
 					Get-Process -Name 'atera'  -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue
 					Get-Process -Name 'msiexec' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue

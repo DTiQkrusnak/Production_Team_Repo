@@ -1,4 +1,4 @@
-[Net.ServicePointManager]::SecurityProtocol = 'TLS12', 'SSL3'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 function blockWin11Upgrade () {
 	<#
 	.SYNOPSIS
@@ -26,7 +26,7 @@ function blockWin11Upgrade () {
 			Write-Output("[-] function is executing fix only on Windows 10, your Windows : $system")
 		}
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -75,7 +75,7 @@ function DisableWinUpdateIfAteraNotExists () {
 		CHECK if 'BITS' and 'DoSvc' has to be disabled here as well
 		#>
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -99,20 +99,22 @@ function AteraInstall () {
 		$ateraRegistryKey = $null
 		$ateraService = $null
 
-		# Check if atera is already installed with 15 second timeout
-		for ($i = 0; $i -lt 30; $i++) {
-			# Get registry settings for Atera Agent
-			$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
+		# Get registry settings for Atera Agent
+		$ateraRegistryKey = Get-Item 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\ATERA Networks\AlphaAgent' -ErrorAction SilentlyContinue
 
-			# Get Atera service if exists
-			$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+		# Get Atera service if exists
+		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+		
+		$ateraExecutablePresentBool = Test-Path -LiteralPath 'C:\Program Files (x86)\ATERA Networks\AteraAgent\AteraAgent.exe'
 
-			if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService)) {
-				Write-Output("[+] Atera detected - nothing to do.")
-				Write-Output("[+] Registery keys check : $ateraRegistryKey")
-				return
-			}
-			Start-Sleep -Milliseconds 500
+		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and $ateraExecutablePresentBool -and ($ateraService.Status -eq 'Running')) {
+			Write-Output("[+] Atera detected - nothing to do.")
+			Write-Output("[+] Registery keys check : $ateraRegistryKey")
+			return
+		}
+		elseif (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and !$ateraExecutablePresentBool -and ($ateraService.Status -eq 'Stopped')) {
+			Write-Output('[*] Broken Atera installation detected, wiping config')
+			sc.exe delete AteraAgent
 		}
 
 		# Get ControllerId from database EZ360Objects
@@ -175,8 +177,8 @@ function AteraInstall () {
 				$AteraFolderIndex = [math]::Truncate($controllerId / 1000) + 1
 			}
 
-			if ($null -eq $foldersHashTable[$AteraFolderIndex]) {
-				$foldersHashTable[$AteraFolderIndex] = '52'
+			if ($null -eq $foldersHashTable[$AteraFolderIndex.ToString()]) {
+				$foldersHashTable[$AteraFolderIndex.ToString()] = '52'
 			}
 
 
@@ -203,7 +205,7 @@ function AteraInstall () {
 				}
 				Write-Output("[+] Atera files downloaded")
 				# Start Atera installer with site ID 22 "PRODUCTION" site
-				msiexec /i atera.msi /qn  IntegratorLogin=Atera.Update@dtiq.com CompanyId=22 AccountId=0013z00002tEY2hAAG FolderId=$($foldersHashTable[$AteraFolderIndex])
+				msiexec /i atera.msi /qn  IntegratorLogin=Atera.Update@dtiq.com CompanyId=22 AccountId=0013z00002tEY2hAAG FolderId=$($foldersHashTable[$AteraFolderIndex.ToString()])
 			}
 
 			# Post check if atera is installed with 15 second timeout
@@ -215,7 +217,7 @@ function AteraInstall () {
 				# Get Atera service if exists
 				$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
 				$ateraProcess = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and ($null -ne $ateraProcess)) {
+				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and $ateraExecutablePresentBool -and ($ateraService.Status -eq 'Running') -and ($null -ne $ateraProcess)) {
 					Write-Output('[+] Atera installed')
 					Get-Process -Name 'atera'  -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue
 					Get-Process -Name 'msiexec' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue
@@ -233,7 +235,7 @@ function AteraInstall () {
 			Write-Error('[-] Hostname not set to VDMS standard')
 		}
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -263,7 +265,7 @@ function SetHostname () {
 			Write-Output('[+] Set hostname completed')
 		}
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -280,7 +282,7 @@ function DisableOBEE () {
 		}
 		New-ItemProperty -Path $logonAnimationPath -Name 'EnableFirstLogonAnimation' -Value 0 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 
 	try {
@@ -290,7 +292,7 @@ function DisableOBEE () {
 		}
 		New-ItemProperty -Path $privacyExperiencePath -Name 'DisablePrivacyExperience' -Value 1 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 
 	try {
@@ -300,7 +302,7 @@ function DisableOBEE () {
 		}
 		New-ItemProperty -Path $consumerFeaturesPath -Name 'DisableWindowsConsumerFeatures' -Value 1 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 	}
 }
 
@@ -457,7 +459,7 @@ function removeLegacyComponents () {
 			Set-Service -Name 'MSSQL$SQLEXPRESS' -StartupType Disabled
 			Write-Output('[+] Disabled legacy SQLSERVER')
 		} catch {
-			Write-Error("[-] $($_.Exception.Message)")
+			Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 		}
 	}
 	Write-Output('[+] Finished removing Legacy components')
@@ -592,7 +594,7 @@ function installWazuh () {
 		Invoke-WebRequest -Uri 'https://dtt-it.s3.amazonaws.com/VPN/wazuh-agent.msi' -OutFile $env:tmp\wazuh-agent.msi -ErrorAction Stop
 		Write-Output('[+] Wazuh download completed')
 	} catch {
-		Write-Error("[-] $($_.Exception.Message)")
+		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
 		return
 	}
 
