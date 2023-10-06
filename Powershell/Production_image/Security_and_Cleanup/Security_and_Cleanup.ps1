@@ -1,4 +1,17 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+function checkPowershellDefaultRepository() {
+	<#
+	.SYNOPSIS
+	.NOTES
+	#>
+	# TODO:
+
+	Write-Output('[*] Check powershell repository')
+	if (!(Get-PSRepository | Where-Object { $_.Name -eq 'PSGallery'})) {
+		Register-PSRepository -Default
+	}
+}
 function blockWin11Upgrade () {
 	<#
 	.SYNOPSIS
@@ -35,6 +48,7 @@ function DisableWinUpdateIfAteraNotExists () {
 	.SYNOPSIS
 	Disables Windows Update service if Atera service is not present in the system
 	#>
+	# TODO:
 
 	Write-Output("[*] Disable Windows Update if Atera does not exist")
 
@@ -84,7 +98,9 @@ function AteraInstall () {
 	.SYNOPSIS
 	Installs Atera service when VDMS-XXXXXXX hostname matches
 	#>
+	# TODO:
 	Write-Output("[*] Atera Install")
+	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 	$foldersHashTable = @{
 		'1011' = '7'; '1001' = '8'; '1002' = '9'; '1003' = '10';'1004' = '11';'1005' = '12';'1006' = '13';'1007' = '14';
@@ -114,7 +130,27 @@ function AteraInstall () {
 		}
 		elseif (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and !$ateraExecutablePresentBool -and ($ateraService.Status -eq 'Stopped')) {
 			Write-Output('[*] Broken Atera installation detected, wiping config')
-			sc.exe delete AteraAgent
+			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'CompanyId' -Force -ErrorAction SilentlyContinue
+			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'FolderId' -Force -ErrorAction SilentlyContinue
+			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'ServerName' -Force -ErrorAction SilentlyContinue
+			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'DisabledRemote' -Force -ErrorAction SilentlyContinue
+			if ($PSVersionTable.PSVersion.Major -eq 7) {
+				Write-Output('[*] PS 7 detected, removing AteraAgent service with builtin cmdlet')
+				Get-Service -DisplayName 'AteraAgent' -ErrorAction SilentlyContinue | Remove-Service -ErrorAction SilentlyContinue
+			}
+			if (Get-Service -DisplayName 'AteraAgent' -ErrorAction SilentlyContinue) {
+				$ateraServiceController = [System.ServiceProcess.ServiceController]::new('AteraAgent')
+				if ($ateraServiceController.Name -ne 'AteraAgent') {
+					Write-Output('[-] Atera service controller cannot be created, deleting with sc.exe')
+					# Kept as fallback
+					sc.exe delete AteraAgent
+				} else {
+					$serviceInstaller = [System.ServiceProcess.ServiceInstaller]::new()
+					$serviceInstaller.ServiceName = 'AteraAgent'
+					$serviceInstaller.Context = [System.Configuration.Install.InstallContext]::new($null, $null)
+					$serviceInstaller.Uninstall($null)
+				}
+			}
 		}
 
 		# Get ControllerId from database EZ360Objects
@@ -123,7 +159,11 @@ function AteraInstall () {
 		FROM [EZ360Objects].[Location].[Controllers]
 		WHERE [Status] = 'Y'
 '@
-		$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System').ControllerId
+		if ($PSVersionTable.PSVersion.Major -eq 7){
+			$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -TrustServerCertificate).ControllerId
+		} else {
+			$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System').ControllerId
+		}
 		[System.Data.SqlClient.SqlConnection]::ClearAllPools()
 
 		# Get Controller Model from database EZ360Objects
@@ -134,7 +174,11 @@ function AteraInstall () {
 		ON CM.ModelID = LC.ModelID
 		WHERE LC.Status = 'Y'
 '@
-		$controllerModel = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerModelQuery -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -QueryTimeout 30).name
+		if ($PSVersionTable.PSVersion.Major -eq 7){
+			$controllerModel = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerModelQuery -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -QueryTimeout 30 -TrustServerCertificate).name
+		} else {
+			$controllerModel = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerModelQuery -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -QueryTimeout 30).name
+		}
 
 		# Set .NET TLS for Atera
 		$dotnetTlsVersionPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\.NETFramework\v4.0.30319'
@@ -244,7 +288,9 @@ function SetHostname () {
 	.SYNOPSIS
 	Sets hostname to VDMS-XXXXXXX, reboot required to take effect
 	#>
+	# TODO:
 	try {
+		[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 		Write-Output('[*] SetHostname')
 
 		# Get ControllerId from database EZ360Objects
@@ -253,7 +299,12 @@ function SetHostname () {
 		FROM [EZ360Objects].[Location].[Controllers]
 		WHERE [Status] = 'Y'
 '@
-		$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System').ControllerId
+
+		if ($PSVersionTable.PSVersion.Major -eq 7){
+			$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -TrustServerCertificate).ControllerId
+		} else {
+			$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System').ControllerId
+		}
 		[System.Data.SqlClient.SqlConnection]::ClearAllPools()
 
 		# Check if hostname matches VDMS standard
@@ -275,6 +326,7 @@ function DisableOBEE () {
 	Adds registry keys to block Windows consumer experience
 	like 'Hi' and 'Get even more out of Windows' screens
 	#>
+	# TODO: Remove old windows prompts for new ones
 	try {
 		$logonAnimationPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
 		if (!(Test-path $logonAnimationPath)) {
@@ -307,6 +359,12 @@ function DisableOBEE () {
 }
 
 function pingAllow () {
+	<#
+	.SYNOPSIS
+	Create firewall rules to
+	.NOTES 
+	# TODO:
+	#>
 	Write-Output('[*] Ping Allow')
 	try {
 		Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Datagram-Out)' -Action Allow -ErrorAction Stop
@@ -330,6 +388,7 @@ function pingAllow () {
 }
 
 function removeLegacyComponents () {
+	# TODO:
 	Write-Output('[*] Remove Legacy Components')
 	#Check migration status
 	$isMigratedVS = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\WOW6432Node\EZUniverse Inc.\EZVideoServer'-ErrorAction SilentlyContinue).ConfigurationManager
@@ -466,7 +525,9 @@ function removeLegacyComponents () {
 }
 
 function installDotNet () {
+	# TODO:
 	Write-Output('[*] Install .NET')
+	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 	if([System.Environment]::Is64BitOperatingSystem) {
 		Write-Output('[+] x64 system')
 
@@ -539,7 +600,9 @@ function installDotNet () {
 }
 
 function installWazuh () {
+	# TODO:
 	Write-Output('[*] Install Wazuh')
+	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 	$sysmonInstallPath = 'C:\DTIQ'
 
 	if (!(Test-Path -LiteralPath $sysmonInstallPath)) {
@@ -614,7 +677,7 @@ function installWazuh () {
 		Write-Output('[+] DTT location identified, installing Wazuh')
 		msiexec.exe /i $env:tmp\wazuh-agent.msi /q WAZUH_MANAGER='wzh-reg.go360iq.com' WAZUH_REGISTRATION_SERVER="wzh-reg.go360iq.com" WAZUH_REGISTRATION_PASSWORD="J4x55Mc#l" WAZUH_AGENT_NAME= ${global:NameTrimmedDTT}
 	} else {
-		Write-Output('[-] Neithe 360 or DTT location identified')
+		Write-Output('[-] Neither 360 or DTT location identified')
 		return
 	}
 	Write-Output('[+] Wazuh install finished')

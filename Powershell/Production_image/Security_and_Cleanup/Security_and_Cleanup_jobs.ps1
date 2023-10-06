@@ -85,6 +85,7 @@ function AteraInstall () {
 	Installs Atera service when VDMS-XXXXXXX hostname matches
 	#>
 	Write-Output("[*] Atera Install")
+	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 	$foldersHashTable = @{
 		'1011' = '7'; '1001' = '8'; '1002' = '9'; '1003' = '10';'1004' = '11';'1005' = '12';'1006' = '13';'1007' = '14';
@@ -115,6 +116,10 @@ function AteraInstall () {
 		elseif (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and !$ateraExecutablePresentBool -and ($ateraService.Status -eq 'Stopped')) {
 			Write-Output('[*] Broken Atera installation detected, wiping config')
 			sc.exe delete AteraAgent
+			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'CompanyId' -Force -ErrorAction SilentlyContinue
+			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'FolderId' -Force -ErrorAction SilentlyContinue
+			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'ServerName' -Force -ErrorAction SilentlyContinue
+			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'DisabledRemote' -Force -ErrorAction SilentlyContinue
 		}
 
 		# Get ControllerId from database EZ360Objects
@@ -216,7 +221,7 @@ function AteraInstall () {
 
 				# Get Atera service if exists
 				$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-				$ateraProcess = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+				$ateraProcess = Get-Process -Name 'AteraAgent' -ErrorAction SilentlyContinue
 				if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and $ateraExecutablePresentBool -and ($ateraService.Status -eq 'Running') -and ($null -ne $ateraProcess)) {
 					Write-Output('[+] Atera installed')
 					Get-Process -Name 'atera'  -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction Continue
@@ -467,6 +472,7 @@ function removeLegacyComponents () {
 
 function installDotNet () {
 	Write-Output('[*] Install .NET')
+	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 	if([System.Environment]::Is64BitOperatingSystem) {
 		Write-Output('[+] x64 system')
 
@@ -540,6 +546,7 @@ function installDotNet () {
 
 function installWazuh () {
 	Write-Output('[*] Install Wazuh')
+	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 	$sysmonInstallPath = 'C:\DTIQ'
 
 	if (!(Test-Path -LiteralPath $sysmonInstallPath)) {
