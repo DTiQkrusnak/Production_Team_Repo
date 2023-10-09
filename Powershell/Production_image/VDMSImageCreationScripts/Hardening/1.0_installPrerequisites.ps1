@@ -17,9 +17,6 @@ $listOfModules = @(
 )
 
 $listOfWindowsFeatures = @(
-    #! show team why we should use '$_.Exception.Message'
-    "NETFx32"
-<#
     "NetFx3",
     
     "MSMQ-container",
@@ -57,7 +54,6 @@ $listOfWindowsFeatures = @(
     "IIS-ISAPIFilter",
     "IIS-HttpCompressionStatic",
     "IIS-ASPNET" 
-#>
 )
 
 function InstallModules($listOfModules) {
@@ -110,8 +106,7 @@ function InstallWindowsFeature($listOfWindowsFeatures) {
     foreach ($featureName in $listOfWindowsFeatures) {
         Write-Host " [*] Installing module : $featureName"
         try {
-            #Enable-WindowsOptionalFeature -Online -FeatureName $featureName -All -NoRestart -WarningAction:SilentlyContinue -ErrorAction:Stop | Out-Null
-            #! ERROR: Enable-WindowsOptionalFeature -Online -FeatureName $featureName -All -NoRestart -Force -WarningAction:SilentlyContinue -ErrorAction:Stop | Out-Null
+            Enable-WindowsOptionalFeature -Online -FeatureName $featureName -All -NoRestart -WarningAction:SilentlyContinue -ErrorAction:Stop | Out-Null
             Write-Host " [+] $featureName feature installed successfully"
         }
         catch {
