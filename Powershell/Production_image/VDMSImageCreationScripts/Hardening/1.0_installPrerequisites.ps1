@@ -72,7 +72,7 @@ function InstallModules($listOfModules) {
     #>
     Write-Host "Installing modules function :"
     foreach ($moduleName in $listOfModules) {
-        Write-Host " [*] Installing module : $moduleName"
+        Write-Host " [i] Installing module : $moduleName"
         try {
             Install-Module -Name $moduleName -Force -Confirm:$false -WarningAction:SilentlyContinue -ErrorAction:Stop
             Import-Module -Name $moduleName -Force -WarningAction:SilentlyContinue -ErrorAction:Stop
@@ -104,15 +104,14 @@ function InstallWindowsFeature($listOfWindowsFeatures) {
     #>
     Write-Host "Installing Windows features function :"
     foreach ($featureName in $listOfWindowsFeatures) {
-        Write-Host " [*] Installing module : $featureName"
+        Write-Host " [i] Installing module : $featureName"
         try {
             Enable-WindowsOptionalFeature -Online -FeatureName $featureName -All -NoRestart -WarningAction:SilentlyContinue -ErrorAction:Stop | Out-Null
             Write-Host " [+] $featureName feature installed successfully"
         }
         catch {
             Write-Host " [-] an ERROR occurred :" -ForegroundColor Red
-            Write-Error "$($_.InvocationInfo.PositionMessage)"
-            #Write-Error "$($_.Exception.Message)"
+            Write-Error "$($_.Exception.Message)"
             exit 1
         }
     }

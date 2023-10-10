@@ -88,7 +88,7 @@ function installNETFramework {
             Write-Host "Checking hashsum :" $item.Name
             $getHash = (Get-FileHash -Algorithm SHA512 -Path $downloadPath).hash
             if ($getHash -ne $item.checksum) {
-                Write-Error " [x] $($_.exception.Message)"
+                Write-Error " [-] $($_.exception.Message)"
                 exit 1
             }
             else {
@@ -103,7 +103,7 @@ function installNETFramework {
                 Write-Host " [+] process completed"  
             }
             catch {
-
+                Write-Error " [-] $($_.exception.Message)"
             }
         }
         else {
@@ -123,7 +123,7 @@ function clearTemp($DTIQTEMPPATH) {
         Write-Host " [+] Files removed"
     }
     catch {
-        Write-Error "$($_.exception.Message)"     
+        Write-Error " [-] $($_.exception.Message)"     
     }
 }
 
