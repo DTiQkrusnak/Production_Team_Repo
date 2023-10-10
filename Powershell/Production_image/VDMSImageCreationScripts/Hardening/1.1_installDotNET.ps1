@@ -80,15 +80,23 @@ function installNETFramework {
         if ($getNETversion -ne $true) {
             #downloading file
             Write-Host "Downloading file ($($item.Size)MB):" $item.Name 
-            $downloadPath = Join-Path $DTIQTEMPPATH -ChildPath $item.Name
-            Invoke-WebRequest -Uri $item.Url -OutFile $downloadPath
-            Write-Host " [+] download completed"
+            try {
+                $downloadPath = Join-Path $DTIQTEMPPATH -ChildPath $item.Name
+                Invoke-WebRequest -Uri $item.Url -OutFile $downloadPath
+                Write-Host " [+] download completed"
+            }
+            catch {
+                Write-Host " [-] an ERROR occurred :" -ForegroundColor Red
+                Write-Error "$($_.Exception.Message)"
+                exit 1
+            }
 
             #checking hash
             Write-Host "Checking hashsum :" $item.Name
             $getHash = (Get-FileHash -Algorithm SHA512 -Path $downloadPath).hash
             if ($getHash -ne $item.checksum) {
-                Write-Error " [-] $($_.exception.Message)"
+                Write-Host " [-] an ERROR occurred :" -ForegroundColor Red
+                Write-Error "$($_.Exception.Message)"
                 exit 1
             }
             else {
@@ -103,7 +111,9 @@ function installNETFramework {
                 Write-Host " [+] process completed"  
             }
             catch {
-                Write-Error " [-] $($_.exception.Message)"
+                Write-Host " [-] an ERROR occurred :" -ForegroundColor Red
+                Write-Error "$($_.Exception.Message)"
+                exit 1
             }
         }
         else {
@@ -123,7 +133,8 @@ function clearTemp($DTIQTEMPPATH) {
         Write-Host " [+] Files removed"
     }
     catch {
-        Write-Error " [-] $($_.exception.Message)"     
+        Write-Host " [-] an ERROR occurred :" -ForegroundColor Red
+        Write-Error "$($_.Exception.Message)"  
     }
 }
 
