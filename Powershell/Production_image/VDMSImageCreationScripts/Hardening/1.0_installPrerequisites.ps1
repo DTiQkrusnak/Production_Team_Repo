@@ -111,7 +111,8 @@ function InstallWindowsFeature($listOfWindowsFeatures) {
         }
         catch {
             Write-Host " [-] an ERROR occurred :" -ForegroundColor Red
-            Write-Error "$($_.Exception.Message)"
+            Write-Error "$($_.InvocationInfo.PositionMessage)"
+            #Write-Error "$($_.Exception.Message)"
             exit 1
         }
     }
