@@ -6,7 +6,7 @@ function checkAdministratorElevation() {
 	try {
 		return (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 	} catch {
-		Write-Error('[-] Cannot return elevation status')
+		Write-Error('[-] Cannot return elevation status') | Tee-Object -Append $scriptsLocation\logs\main.log
 	}
 }
 
