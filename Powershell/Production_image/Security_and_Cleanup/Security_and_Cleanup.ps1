@@ -1,23 +1,28 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-function checkPowershellDefaultRepository() {
+function CHECK_POWERSHELL_DEFAULT_REPOSITORY() {
 	<#
 	.SYNOPSIS
-	.NOTES
+	Set PSGallery as default repository if not present
+	Add shellget.go360iq.com to repository if not present
+	.DESCRIPTION
+	Function checkes local powershell repository list and if PSGallery is not present it is added
+	Additionally we add shellget.go360iq.com (our internal repository) to repositories for future use
 	#>
-	# TODO:
 
-	Write-Output('[*] Check powershell repository')
+	Write-Output('[i] Check powershell repository')
 	if (!(Get-PSRepository | Where-Object { $_.Name -eq 'PSGallery'})) {
 		Register-PSRepository -Default
 	}
 }
-function blockWin11Upgrade () {
+function BLOCK_WIN11_UPGRADE () {
 	<#
 	.SYNOPSIS
 	Blocks Windows 11 upgrade prompts and version on 21H2
+	.DESCRIPTION
+	Function adds registry keys to HKLM to block updates to version specified
 	#>
-	Write-Output('[*] Block Win11 Upgrade')
+	Write-Output('[i] Block Win11 Upgrade')
 
 	$regPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
 
@@ -25,7 +30,7 @@ function blockWin11Upgrade () {
 		$system = (Get-WMIObject win32_operatingsystem).Caption
 
 		if ($system -like "*Windows*10*") {
-			Write-Output('[*] blockWin11Upgrade')
+			Write-Output('[i] blockWin11Upgrade')
 			if (!(Test-path $regPath)) {
 				New-Item -Path $regPath -Force
 			}
@@ -39,18 +44,20 @@ function blockWin11Upgrade () {
 			Write-Output("[-] function is executing fix only on Windows 10, your Windows : $system")
 		}
 	} catch {
-		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
+		Write-Error("[-]  $($_.Exception.Message)")
 	}
 }
 
-function DisableWinUpdateIfAteraNotExists () {
+function DISABLE_WINDOWS_UPDATE_IF_ATERA_NOT_EXISTS () {
 	<#
 	.SYNOPSIS
 	Disables Windows Update service if Atera service is not present in the system
+	.DESCRIPTION
+	Function is checking if service and process for AteraAgent are working.
+	If not Windows Update service is disabled
 	#>
-	# TODO:
 
-	Write-Output("[*] Disable Windows Update if Atera does not exist")
+	Write-Output("[i] Disable Windows Update if Atera does not exist")
 
 	$ateraRegistryKey = $null
 	$winUpdateService = $null
@@ -63,7 +70,7 @@ function DisableWinUpdateIfAteraNotExists () {
 
 		# Get Atera service if exists
 		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
-		$ateraProcess = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
+		$ateraProcess = Get-Process -Name 'AteraAgent' -ErrorAction SilentlyContinue
 		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and ($null -ne $ateraProcess)) {
 			Write-Output("[+] Atera detected - nothing to do.")
 			Write-Output("[+] Registery keys check : $ateraRegistryKey")
@@ -75,11 +82,11 @@ function DisableWinUpdateIfAteraNotExists () {
 		Write-Output("[!] ALERT : ATERA NOT FOUND!! DISABLING WINDOWSUPDATE SERVICE!!!")
 		$winUpdateService = Get-Service -Name "wuauserv" -ErrorAction SilentlyContinue
 
-		Write-Output("[*] Stopping windows update service")
+		Write-Output("[i] Stopping windows update service")
 		$winUpdateService | Stop-Service -Force -ErrorAction SilentlyContinue
 		Write-Output("[+] $($winUpdateService.DisplayName) service stopped")
 
-		Write-Output("[*] Disabling windows update service")
+		Write-Output("[i] Disabling windows update service")
 		$winUpdateService | Set-Service -StartupType "Disabled"
 		Write-Output("[+] $($winUpdateService.DisplayName) service disabled")
 
@@ -89,17 +96,27 @@ function DisableWinUpdateIfAteraNotExists () {
 		CHECK if 'BITS' and 'DoSvc' has to be disabled here as well
 		#>
 	} catch {
-		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
+		Write-Error("[-]  $($_.Exception.Message)")
 	}
 }
 
-function AteraInstall () {
+function INSTALL_ATERA() {
 	<#
 	.SYNOPSIS
 	Installs Atera service when VDMS-XXXXXXX hostname matches
+	.DESCRIPTION
+	Function detects if Atera is installed and if it is broken or not. If it is installed it completely skip whole function.
+	If it is broken it removes registry values that are not identifying the location on website and uninstalls Windows Service AteraAgent in preparation for reinstallation.
+	Later the normal flow is happening with calculation, download and installation.
+	
+	If Atera is not installed it creates path for download and based on model it downloads Summit or Production version of Atera.
+	Production version of Atera is split between folders on website based on ControllerID calculation (FolderID is obtained from hash $foldersHashTable
+	and it is calculated with following formula [foldersHashTableKey = ControllerId / 1000])
+	
+	FolderId = 52 works as fallback, in situation when hash cannot be found after calculation it will assign this ID
 	#>
 	# TODO:
-	Write-Output("[*] Atera Install")
+	Write-Output("[i] Atera Install")
 	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 	$foldersHashTable = @{
@@ -108,7 +125,7 @@ function AteraInstall () {
 		'1017' = '23';'1018' = '24';'1019' = '25';'1020' = '26';'1021' = '27';'1022' = '28';'1023' = '29';'1024' = '30';
 		'1025' = '31';'1026' = '32';'1027' = '33';'1028' = '34';'1029' = '35';'1030' = '36';'1031' = '37';'1032' = '38';
 		'1033' = '39';'1034' = '40';'1035' = '41';'1036' = '42';'1037' = '43';'1038' = '44';'1039' = '45';'1040' = '46';
-		'1041' = '47';'1042' = '48';'1043' = '49';'1044' = '50';'1045' = '51';'1080' = '52';
+		'1041' = '47';'1042' = '48';'1043' = '49';'1044' = '50';'1000' = '51';'1080' = '52';
 		}
 
 	try {
@@ -121,7 +138,9 @@ function AteraInstall () {
 		# Get Atera service if exists
 		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
 		
-		$ateraExecutablePresentBool = Test-Path -LiteralPath 'C:\Program Files (x86)\ATERA Networks\AteraAgent\AteraAgent.exe'
+		# Check both x86 and x64 paths for Atera executable
+		$ateraResolvedPath = Resolve-Path -Path 'C:\Program Files*\ATERA Networks\AteraAgent\AteraAgent.exe'
+		$ateraExecutablePresentBool = Test-Path -LiteralPath $ateraResolvedPath
 
 		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and $ateraExecutablePresentBool -and ($ateraService.Status -eq 'Running')) {
 			Write-Output("[+] Atera detected - nothing to do.")
@@ -129,13 +148,13 @@ function AteraInstall () {
 			return
 		}
 		elseif (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and !$ateraExecutablePresentBool -and ($ateraService.Status -eq 'Stopped')) {
-			Write-Output('[*] Broken Atera installation detected, wiping config')
+			Write-Output('[i] Broken Atera installation detected, wiping config')
 			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'CompanyId' -Force -ErrorAction SilentlyContinue
 			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'FolderId' -Force -ErrorAction SilentlyContinue
 			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'ServerName' -Force -ErrorAction SilentlyContinue
 			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'DisabledRemote' -Force -ErrorAction SilentlyContinue
 			if ($PSVersionTable.PSVersion.Major -eq 7) {
-				Write-Output('[*] PS 7 detected, removing AteraAgent service with builtin cmdlet')
+				Write-Output('[i] PS 7 detected, removing AteraAgent service with builtin cmdlet')
 				Get-Service -DisplayName 'AteraAgent' -ErrorAction SilentlyContinue | Remove-Service -ErrorAction SilentlyContinue
 			}
 			if (Get-Service -DisplayName 'AteraAgent' -ErrorAction SilentlyContinue) {
@@ -204,7 +223,7 @@ function AteraInstall () {
 		$ateraDownloadPath = 'C:\ProgramData\DTiQ\TaskScheduler\ateraInstall'
 
 		if ((Test-Path $ateraDownloadPath) -eq $false) {
-			Write-Output("[*] Creating directory : $($ateraDownloadPath)")
+			Write-Output("[i] Creating directory : $($ateraDownloadPath)")
 			New-Item $ateraDownloadPath -ItemType Directory -Force | Out-Null
 			Write-Output('[+] Directory created')
 		} else {
@@ -214,13 +233,14 @@ function AteraInstall () {
 		# Check if hostname is set to VDMS standard
 		if ($env:COMPUTERNAME -eq "VDMS-$controllerId") {
 			Set-Location -Path $ateraDownloadPath
-			# Get CCS hub ID
+			# Calculate FolderId key
 			if ($controllerId.ToString().Length -lt 7) {
-				$AteraFolderIndex = 1001
+				$AteraFolderIndex = 1000
 			} else {
-				$AteraFolderIndex = [math]::Truncate($controllerId / 1000) + 1
+				$AteraFolderIndex = [math]::Truncate($controllerId / 1000)
 			}
 
+			# If value from key cannot be obtained this portion of code creates new key with fallback value
 			if ($null -eq $foldersHashTable[$AteraFolderIndex.ToString()]) {
 				$foldersHashTable[$AteraFolderIndex.ToString()] = '52'
 			}
@@ -269,9 +289,9 @@ function AteraInstall () {
 				}
 				Start-Sleep -Milliseconds 500
 			}
-		} elseif ($null -ne $script:isRenameSuccessful) {
-			if ($script:isRenameSuccessful.NewComputerName -eq "VDMS-$controllerId") {
-				Write-Output('[*] Restart required to set hostname before installing Atera')
+		} elseif ($null -ne $script:ISRENAMESUCCESSFUL) {
+			if ($script:ISRENAMESUCCESSFUL.NewComputerName -eq "VDMS-$controllerId") {
+				Write-Output('[i] Restart required to set hostname before installing Atera')
 			} else {
 				Write-Error('[-] Cannot verify if SetHostname succeded')
 			}
@@ -279,19 +299,20 @@ function AteraInstall () {
 			Write-Error('[-] Hostname not set to VDMS standard')
 		}
 	} catch {
-		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
+		Write-Error("[-]  $($_.Exception.Message)")
 	}
 }
-
-function SetHostname () {
+function SET_HOSTNAME() {
 	<#
 	.SYNOPSIS
-	Sets hostname to VDMS-XXXXXXX, reboot required to take effect
+	Sets hostname to VDMS-XXXXXXX (ControllerID), reboot required to take effect
+	.DESCRIPTION
+
 	#>
 	# TODO:
 	try {
 		[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-		Write-Output('[*] SetHostname')
+		Write-Output('[i] SetHostname')
 
 		# Get ControllerId from database EZ360Objects
 		$getControllerIdQuery = @'
@@ -312,15 +333,15 @@ function SetHostname () {
 			Write-Output('[+] Hostname already changed')
 			return
 		} else {
-			$script:isRenameSuccessful = Rename-Computer -NewName "VDMS-$controllerID" -PassThru
+			$script:ISRENAMESUCCESSFUL = Rename-Computer -NewName "VDMS-$controllerID" -PassThru
 			Write-Output('[+] Set hostname completed')
 		}
 	} catch {
-		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
+		Write-Error("[-]  $($_.Exception.Message)")
 	}
 }
 
-function DisableOBEE () {
+function DISABLE_OBEE () {
 	<#
 	.SYNOPSIS
 	Adds registry keys to block Windows consumer experience
@@ -334,7 +355,7 @@ function DisableOBEE () {
 		}
 		New-ItemProperty -Path $logonAnimationPath -Name 'EnableFirstLogonAnimation' -Value 0 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
+		Write-Error("[-]  $($_.Exception.Message)")
 	}
 
 	try {
@@ -344,7 +365,7 @@ function DisableOBEE () {
 		}
 		New-ItemProperty -Path $privacyExperiencePath -Name 'DisablePrivacyExperience' -Value 1 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
+		Write-Error("[-]  $($_.Exception.Message)")
 	}
 
 	try {
@@ -354,18 +375,18 @@ function DisableOBEE () {
 		}
 		New-ItemProperty -Path $consumerFeaturesPath -Name 'DisableWindowsConsumerFeatures' -Value 1 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
+		Write-Error("[-]  $($_.Exception.Message)")
 	}
 }
 
-function pingAllow () {
+function SET_FIREWALL_RULE_PING_ALLOW () {
 	<#
 	.SYNOPSIS
 	Create firewall rules to
 	.NOTES 
 	# TODO:
 	#>
-	Write-Output('[*] Ping Allow')
+	Write-Output('[i] Ping Allow')
 	try {
 		Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Datagram-Out)' -Action Allow -ErrorAction Stop
 		Set-NetFirewallRule -DisplayName 'Network Discovery (NB-Name-Out)' -Action Allow -ErrorAction Stop
@@ -387,14 +408,14 @@ function pingAllow () {
 	Write-Output('[+] Ping Allow completed')
 }
 
-function removeLegacyComponents () {
+function REMOVE_LEGACY_COMPONENTS () {
 	# TODO:
-	Write-Output('[*] Remove Legacy Components')
+	Write-Output('[i] Remove Legacy Components')
 	#Check migration status
 	$isMigratedVS = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\WOW6432Node\EZUniverse Inc.\EZVideoServer'-ErrorAction SilentlyContinue).ConfigurationManager
 	$isMigratedEH = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\WOW6432Node\EZUniverse Inc.\EZEventHandler' -ErrorAction SilentlyContinue).ConfigurationManager
 
-	Write-Output('[*] Checking migration status')
+	Write-Output('[i] Checking migration status')
 	if (($isMigratedVS -eq 1) -and ($isMigratedEH -eq 1)) {}
 	else {
 		Write-Output('[-] Site is not migrated skipping removal of Legacy components.')
@@ -446,7 +467,7 @@ function removeLegacyComponents () {
 	Get-ChildItem |
 	Get-ItemProperty
 
-	Write-Output('[*] Stopping SystemWatcher, SQLReplicator, EZSensor Server and UpdateCenters')
+	Write-Output('[i] Stopping SystemWatcher, SQLReplicator, EZSensor Server and UpdateCenters')
 	Stop-Service -Force -ErrorAction SilentlyContinue -Name (
 		'EZSQLReplicator','EZSystemWatcher', 'EZSensorsServer','SubwayUpdateCenter','EZUpdateCenter')
 
@@ -459,7 +480,7 @@ function removeLegacyComponents () {
 
 	# Get MSI programs
 	foreach ($name in $removeMSI) {
-		Write-Output("[*] Uninstalling $($name)")
+		Write-Output("[i] Uninstalling $($name)")
 		
 		$appObjects | 
 		Where-Object { $_.DisplayName -match $name} | 
@@ -498,7 +519,7 @@ function removeLegacyComponents () {
 				Write-Error("[-] Missing file $($datFilePath), skipping")
 				Continue
 			}
-			Write-Output("[*] Uninstalling $($_.DisplayName)")
+			Write-Output("[i] Uninstalling $($_.DisplayName)")
 
 			try {
 				$proc = Start-Process $path[1] -ArgumentList $($path[2..($path.Length -2)]) -PassThru -NoNewWindow
@@ -518,15 +539,15 @@ function removeLegacyComponents () {
 			Set-Service -Name 'MSSQL$SQLEXPRESS' -StartupType Disabled
 			Write-Output('[+] Disabled legacy SQLSERVER')
 		} catch {
-			Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
+			Write-Error("[-]  $($_.Exception.Message)")
 		}
 	}
 	Write-Output('[+] Finished removing Legacy components')
 }
 
-function installDotNet () {
+function INSTALL_DOT_NET () {
 	# TODO:
-	Write-Output('[*] Install .NET')
+	Write-Output('[i] Install .NET')
 	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 	if([System.Environment]::Is64BitOperatingSystem) {
 		Write-Output('[+] x64 system')
@@ -570,7 +591,7 @@ function installDotNet () {
 			if ($dotnetVersionsRegistry -contains $item.version) {
 				Continue
 			}
-			Write-Output("[*] Downloading $($item.Name)")
+			Write-Output("[i] Downloading $($item.Name)")
 			try {
 				Invoke-RestMethod -Uri $item.Url -OutFile $item.Name
 				Write-Output("[+] Download of $($item.Name) comleted")
@@ -585,7 +606,7 @@ function installDotNet () {
 			}
 
 			try {
-				Write-Output("[*] Installing $($item.Name)")
+				Write-Output("[i] Installing $($item.Name)")
 				Start-Process -FilePath $item.Name -ArgumentList ('/q', '/norestart')
 				Write-Output("[+] Installation $($item.Name) running in background")
 			} catch {
@@ -599,9 +620,9 @@ function installDotNet () {
 	}
 }
 
-function installWazuh () {
+function INSTALL_WAZUH () {
 	# TODO:
-	Write-Output('[*] Install Wazuh')
+	Write-Output('[i] Install Wazuh')
 	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 	$sysmonInstallPath = 'C:\DTIQ'
 
@@ -624,14 +645,14 @@ function installWazuh () {
 	}
 
 	
-	Write-Output('[*] Sysmon cleanup running')
+	Write-Output('[i] Sysmon cleanup running')
 	Set-Location -LiteralPath $sysmonInstallPath
 
 	$(cmd /c '.\Sysmon64.exe -u 2>&1' > logfile.txt 2>&1) | Out-Null
 	if (Get-Content -LiteralPath $sysmonInstallPath/logfile.txt | Select-String -SimpleMatch 'Removing service files.') {
 		Write-Output('[+] Sysmon cleanup successfull')
 	} else {
-		Write-Output('[*] Sysmon not cleaned up')
+		Write-Output('[i] Sysmon not cleaned up')
 	}
 	
 
@@ -643,7 +664,7 @@ function installWazuh () {
 	if (Get-Content -LiteralPath $sysmonInstallPath/logfile.txt | Select-String -SimpleMatch 'Sysmon64 started.') {
 		Write-Output('[+] Sysmon installation successfull')
 	} else {
-		Write-Output('[*] Sysmon installer failed')
+		Write-Output('[i] Sysmon installer failed')
 	}
 	
 
@@ -657,7 +678,7 @@ function installWazuh () {
 		Invoke-WebRequest -Uri 'https://dtt-it.s3.amazonaws.com/VPN/wazuh-agent.msi' -OutFile $env:tmp\wazuh-agent.msi -ErrorAction Stop
 		Write-Output('[+] Wazuh download completed')
 	} catch {
-		Write-Error("[-]  $($_.InvocationInfo.PositionMessage)")
+		Write-Error("[-]  $($_.Exception.Message)")
 		return
 	}
 
@@ -683,16 +704,18 @@ function installWazuh () {
 	Write-Output('[+] Wazuh install finished')
 }
 
-blockWin11Upgrade
-SetHostname
-AteraInstall
-DisableWinUpdateIfAteraNotExists
-DisableOBEE
-pingAllow
-removeLegacyComponents
-installWazuh
-#installDotNet
+# TODO: CHECK_POWERSHELL_DEFAULT_REPOSITORY
+BLOCK_WIN11_UPGRADE
+SET_HOSTNAME
+INSTALL_ATERA
+DISABLE_WINDOWS_UPDATE_IF_ATERA_NOT_EXISTS
+DISABLE_OBEE
+SET_FIREWALL_RULE_PING_ALLOW
+REMOVE_LEGACY_COMPONENTS
+INSTALL_WAZUH
+# TODO: INSTALL_DOT_NET
 
-# TODO
-# validateWindowsAccounts
-# setTreeACLS
+<# TODO :
+VALIDATE_WINDOWS_ACCOUNTS
+SET_FOLDER_TREE_ACLS
+#>
