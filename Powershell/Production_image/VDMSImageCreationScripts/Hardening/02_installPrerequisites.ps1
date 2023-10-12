@@ -56,7 +56,7 @@ $listOfWindowsFeatures = @(
     "IIS-ASPNET" 
 )
 
-function InstallModules($listOfModules) {
+function INSTALL_MODULES($listOfModules) {
     <#
         .SYNOPSIS
         Install powershell modules.
@@ -87,7 +87,7 @@ function InstallModules($listOfModules) {
     Write-Host "All modules installed."
 }
 
-function InstallWindowsFeature($listOfWindowsFeatures) {
+function INSTALLWINDOWSFEATURE($listOfWindowsFeatures) {
     <#
         .SYNOPSIS
         Install Windows features.
@@ -119,5 +119,5 @@ function InstallWindowsFeature($listOfWindowsFeatures) {
 }
 
 ### Execute functions
-InstallModules $listOfModules
-InstallWindowsFeature $listOfWindowsFeatures
+INSTALL_MODULES $listOfModules
+INSTALLWINDOWSFEATURE $listOfWindowsFeatures

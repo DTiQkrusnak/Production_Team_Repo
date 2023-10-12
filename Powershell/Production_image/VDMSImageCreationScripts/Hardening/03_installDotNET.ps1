@@ -22,8 +22,8 @@ class FileProperties {
 
     fileProperties([string]$name, [string]$versionCheck, [string]$version, [string]$url, [string]$checksum, [int]$Size) {
         $this.Name = $name
-        $this.versionCheck = $versionCheck
-        $this.version = $version
+        $this.VersionCheck = $versionCheck
+        $this.Version = $version
         $this.Url = $url
         $this.Checksum = $checksum
         $this.Size = $size
@@ -76,7 +76,7 @@ function installNETFramework {
         This .NET packages might be useful if we need to run some .NET code, as powershell might have issues or difficulties. 
     #>
     foreach ($item in $dotNETPackageList) {
-        $getNETversion = Invoke-Expression $item.versionCheck
+        $getNETversion = Invoke-Expression $item.VersionCheck
         if ($getNETversion -ne $true) {
             #downloading file
             Write-Host "Downloading file ($($item.Size)MB):" $item.Name 
@@ -117,7 +117,7 @@ function installNETFramework {
             }
         }
         else {
-            Write-Host " [+] .NET already installed : $($item.version)"
+            Write-Host " [+] .NET already installed : $($item.Version)"
         }
     } 
 }
