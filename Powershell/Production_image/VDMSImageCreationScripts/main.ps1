@@ -1,14 +1,9 @@
+$ErrorActionPreference = 'Stop'
+
 $scriptsLocation = $PSScriptRoot + "\scripts"
 $logsLocation = $PSScriptRoot + "\scripts\logs\"
 $scriptsCollection = Get-ChildItem -Path $scriptsLocation\*.ps1 | Sort-Object -Property Name
 
-function checkAdministratorElevation() {
-	try {
-		return (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-	} catch {
-		Write-Error('[-] Cannot return elevation status') | Tee-Object -Append $scriptsLocation\logs\main.log
-	}
-}
 
 function createLogsDir {
 	if (!(Test-Path $logsLocation)) {
@@ -28,5 +23,8 @@ function executeScripts {
 	}
 }
 
-createLogsDir
-executeScripts
+if ((New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+	Write-Output('[+] Script is running with administrator priviledges') | Tee-Object -Append $scriptsLocation\logs\main.log
+	createLogsDir
+	executeScripts
+}
