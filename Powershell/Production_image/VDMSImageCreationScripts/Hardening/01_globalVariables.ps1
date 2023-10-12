@@ -13,7 +13,7 @@
 $global:DTIQTEMPPATH = 'C:\DTiQ_temp\' #directory to store any file downloaded from web
 
 
-function execute_DTIQTEMPPATH {
+function Execute_DTIQTEMPPATH {
     <#
         .SYNOPSIS
         Create directory for storing files downloaded from the web.
@@ -38,4 +38,4 @@ function execute_DTIQTEMPPATH {
     }
 }
 
-execute_DTIQTEMPPATH
+Execute_DTIQTEMPPATH
