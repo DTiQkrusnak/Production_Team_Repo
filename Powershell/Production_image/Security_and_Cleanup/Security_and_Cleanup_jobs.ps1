@@ -1,6 +1,6 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-function CHECK_POWERSHELL_DEFAULT_REPOSITORY() {
+function Add-PowershellDefaultRepository() {
 	<#
 	.SYNOPSIS
 	Set PSGallery as default repository if not present
@@ -12,10 +12,10 @@ function CHECK_POWERSHELL_DEFAULT_REPOSITORY() {
 
 	Write-Output('[i] Check powershell repository')
 	if (!(Get-PSRepository | Where-Object { $_.Name -eq 'PSGallery'})) {
-		Register-PSRepository -Default
+		Register-PSRepository -Default -ErrorAction SilentlyContinue
 	}
 }
-function BLOCK_WIN11_UPGRADE () {
+function Disable-Windows11Upgrade() {
 	<#
 	.SYNOPSIS
 	Blocks Windows 11 upgrade prompts and version on 21H2
@@ -48,7 +48,7 @@ function BLOCK_WIN11_UPGRADE () {
 	}
 }
 
-function DISABLE_WINDOWS_UPDATE_IF_ATERA_NOT_EXISTS () {
+function Disable-WindowsUpdateIfAteraNotPresent() {
 	<#
 	.SYNOPSIS
 	Disables Windows Update service if Atera service is not present in the system
@@ -100,7 +100,7 @@ function DISABLE_WINDOWS_UPDATE_IF_ATERA_NOT_EXISTS () {
 	}
 }
 
-function INSTALL_ATERA() {
+function Install-Atera() {
 	<#
 	.SYNOPSIS
 	Installs Atera service when VDMS-XXXXXXX hostname matches
@@ -302,7 +302,7 @@ function INSTALL_ATERA() {
 		Write-Error("[-]  $($_.Exception.Message)")
 	}
 }
-function SET_HOSTNAME() {
+function Set-Hostname() {
 	<#
 	.SYNOPSIS
 	Sets hostname to VDMS-XXXXXXX (ControllerID), reboot required to take effect
@@ -341,7 +341,7 @@ function SET_HOSTNAME() {
 	}
 }
 
-function DISABLE_OBEE () {
+function Disable-Obee() {
 	<#
 	.SYNOPSIS
 	Adds registry keys to block Windows consumer experience
@@ -379,7 +379,7 @@ function DISABLE_OBEE () {
 	}
 }
 
-function SET_FIREWALL_RULE_PING_ALLOW () {
+function Set-FirewallRulePingAllow() {
 	<#
 	.SYNOPSIS
 	Create firewall rules to
@@ -408,7 +408,7 @@ function SET_FIREWALL_RULE_PING_ALLOW () {
 	Write-Output('[+] Ping Allow completed')
 }
 
-function REMOVE_LEGACY_COMPONENTS () {
+function Uninstall-LegacyComponents() {
 	# TODO:
 	Write-Output('[i] Remove Legacy Components')
 	#Check migration status
@@ -545,7 +545,7 @@ function REMOVE_LEGACY_COMPONENTS () {
 	Write-Output('[+] Finished removing Legacy components')
 }
 
-function INSTALL_DOT_NET () {
+function Install-DotNet() {
 	# TODO:
 	Write-Output('[i] Install .NET')
 	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -620,7 +620,7 @@ function INSTALL_DOT_NET () {
 	}
 }
 
-function INSTALL_WAZUH () {
+function Install-Wazuh() {
 	# TODO:
 	Write-Output('[i] Install Wazuh')
 	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -710,14 +710,15 @@ SET_FOLDER_TREE_ACLS
 #>
 
 
-function RUN_ALL_FUNCTIONS_AS_JOBS() {
-	function CREATE_SCRIPT_BLOCK([string[]] $jobs) {
+
+function Invoke-AllFunctionsAsJobs() {
+	function New-ScriptBlock([string[]] $FunctionName) {
 		$output = $null
-		foreach ($job in $jobs) {
+		foreach ($name in $FunctionName) {
 				$output += @"
-`$function:$job = `$using:function:$job
-Write-Output('$job')
-$job
+`$function:$($name.Replace('-','')) = `$using:function:$name
+Write-Output('$name')
+$name
 
 "@}
 		
@@ -725,14 +726,14 @@ $job
 	}
 
 	$jobs = @()
-	# TODO: $jobs += Start-Job -ScriptBlock $(CREATE_SCRIPT_BLOCK -jobs 'CHECK_POWERSHELL_DEFAULT_REPOSITORY') -Name 'CHECK_POWERSHELL_DEFAULT_REPOSITORY'
-	$jobs += Start-Job -ScriptBlock $(CREATE_SCRIPT_BLOCK -jobs 'BLOCK_WIN11_UPGRADE') -Name 'BLOCK_WIN11_UPGRADE'
-	$jobs += Start-Job -ScriptBlock $(CREATE_SCRIPT_BLOCK -jobs 'SET_HOSTNAME', 'INSTALL_ATERA', 'DISABLE_WINDOWS_UPDATE_IF_ATERA_NOT_EXISTS') -Name 'INSTALL_ATERA'
-	$jobs += Start-Job -ScriptBlock $(CREATE_SCRIPT_BLOCK -jobs 'DISABLE_OBEE') -Name 'DISABLE_OBEE'
-	$jobs += Start-Job -ScriptBlock $(CREATE_SCRIPT_BLOCK -jobs 'SET_FIREWALL_RULE_PING_ALLOW') -Name 'SET_FIREWALL_RULE_PING_ALLOW'
-	$jobs += Start-Job -ScriptBlock $(CREATE_SCRIPT_BLOCK -jobs 'REMOVE_LEGACY_COMPONENTS') -Name 'REMOVE_LEGACY_COMPONENTS'
-	$jobs += Start-Job -ScriptBlock $(CREATE_SCRIPT_BLOCK -jobs 'INSTALL_WAZUH') -Name 'INSTALL_WAZUH'
-	# TODO: $jobs += Start-Job -ScriptBlock $(CREATE_SCRIPT_BLOCK -jobs 'INSTALL_DOT_NET') -Name 'INSTALL_DOT_NET'
+	# TODO: $jobs += Start-Job -ScriptBlock $(New-ScriptBlock -jobs 'Add-PowershellDefaultRepository') -Name 'Add-PowershellDefaultRepository'
+	$jobs += Start-Job -ScriptBlock $(New-ScriptBlock -FunctionName 'Disable-Windows11Upgrade') -Name 'Disable-Windows11Upgrade'
+	$jobs += Start-Job -ScriptBlock $(New-ScriptBlock -FunctionName 'Set-Hostname', 'Install-Atera', 'Disable-WindowsUpdateIfAteraNotPresent') -Name 'Install-Atera'
+	$jobs += Start-Job -ScriptBlock $(New-ScriptBlock -FunctionName 'Disable-Obee') -Name 'Disable-Obee'
+	$jobs += Start-Job -ScriptBlock $(New-ScriptBlock -FunctionName 'Set-FirewallRulePingAllow') -Name 'Set-FirewallRulePingAllow'
+	$jobs += Start-Job -ScriptBlock $(New-ScriptBlock -FunctionName 'Uninstall-LegacyComponents') -Name 'Uninstall-LegacyComponents'
+	$jobs += Start-Job -ScriptBlock $(New-ScriptBlock -FunctionName 'Install-Wazuh') -Name 'Install-Wazuh'
+	# TODO: $jobs += Start-Job -ScriptBlock $(New-ScriptBlock -jobs 'Install-DotNet') -Name 'Install-DotNet'
 
 
 	Write-Output('[+] Jobs are running')
@@ -750,4 +751,6 @@ $job
 	Write-Output('[+] All jobs finished')
 }
 
-RUN_ALL_FUNCTIONS_AS_JOBS
+
+# ! Currently with Powershell approved verbs the script blocks cannot be created because of '-' between words in function names
+Invoke-AllFunctionsAsJobs

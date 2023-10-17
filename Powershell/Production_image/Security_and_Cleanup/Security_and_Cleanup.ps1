@@ -1,6 +1,15 @@
+<#
+.SYNOPSIS
+Multi purpose script that installs production tools like Atera and Wazuh
+Removes Legacy components on VDMS systems
+and blocks out updates that are not maintained or pushed by production team
+.DESCRIPTION
+
+#>
+
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-function CHECK_POWERSHELL_DEFAULT_REPOSITORY() {
+function Add-PowershellDefaultRepository() {
 	<#
 	.SYNOPSIS
 	Set PSGallery as default repository if not present
@@ -15,7 +24,7 @@ function CHECK_POWERSHELL_DEFAULT_REPOSITORY() {
 		Register-PSRepository -Default
 	}
 }
-function BLOCK_WIN11_UPGRADE () {
+function Disable-Windows11Upgrade() {
 	<#
 	.SYNOPSIS
 	Blocks Windows 11 upgrade prompts and version on 21H2
@@ -48,7 +57,7 @@ function BLOCK_WIN11_UPGRADE () {
 	}
 }
 
-function DISABLE_WINDOWS_UPDATE_IF_ATERA_NOT_EXISTS () {
+function Disable-WindowsUpdateIfAteraNotPresent() {
 	<#
 	.SYNOPSIS
 	Disables Windows Update service if Atera service is not present in the system
@@ -100,7 +109,7 @@ function DISABLE_WINDOWS_UPDATE_IF_ATERA_NOT_EXISTS () {
 	}
 }
 
-function INSTALL_ATERA() {
+function Install-Atera() {
 	<#
 	.SYNOPSIS
 	Installs Atera service when VDMS-XXXXXXX hostname matches
@@ -139,8 +148,12 @@ function INSTALL_ATERA() {
 		$ateraService = Get-Service -Name 'AteraAgent' -ErrorAction SilentlyContinue
 		
 		# Check both x86 and x64 paths for Atera executable
-		$ateraResolvedPath = Resolve-Path -Path 'C:\Program Files*\ATERA Networks\AteraAgent\AteraAgent.exe'
-		$ateraExecutablePresentBool = Test-Path -LiteralPath $ateraResolvedPath
+		$ateraResolvedPath = Resolve-Path -Path 'C:\Program Files*\ATERA Networks\AteraAgent\AteraAgent.exe' -ErrorAction SilentlyContinue
+		if ($null -eq $ateraResolvedPath) {
+			$ateraExecutablePresentBool = $false
+		} else {
+			$ateraExecutablePresentBool = Test-Path -LiteralPath $ateraResolvedPath
+		}
 
 		if (($null -ne $ateraRegistryKey) -and ($null -ne $ateraService) -and $ateraExecutablePresentBool -and ($ateraService.Status -eq 'Running')) {
 			Write-Output("[+] Atera detected - nothing to do.")
@@ -302,7 +315,7 @@ function INSTALL_ATERA() {
 		Write-Error("[-]  $($_.Exception.Message)")
 	}
 }
-function SET_HOSTNAME() {
+function Set-Hostname() {
 	<#
 	.SYNOPSIS
 	Sets hostname to VDMS-XXXXXXX (ControllerID), reboot required to take effect
@@ -341,7 +354,7 @@ function SET_HOSTNAME() {
 	}
 }
 
-function DISABLE_OBEE () {
+function Disable-Obee() {
 	<#
 	.SYNOPSIS
 	Adds registry keys to block Windows consumer experience
@@ -379,7 +392,7 @@ function DISABLE_OBEE () {
 	}
 }
 
-function SET_FIREWALL_RULE_PING_ALLOW () {
+function Set-FirewallRulePingAllow() {
 	<#
 	.SYNOPSIS
 	Create firewall rules to
@@ -408,7 +421,7 @@ function SET_FIREWALL_RULE_PING_ALLOW () {
 	Write-Output('[+] Ping Allow completed')
 }
 
-function REMOVE_LEGACY_COMPONENTS () {
+function Uninstall-LegacyComponents() {
 	# TODO:
 	Write-Output('[i] Remove Legacy Components')
 	#Check migration status
@@ -545,7 +558,7 @@ function REMOVE_LEGACY_COMPONENTS () {
 	Write-Output('[+] Finished removing Legacy components')
 }
 
-function INSTALL_DOT_NET () {
+function Install-DotNet() {
 	# TODO:
 	Write-Output('[i] Install .NET')
 	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -620,7 +633,7 @@ function INSTALL_DOT_NET () {
 	}
 }
 
-function INSTALL_WAZUH () {
+function Install-Wazuh() {
 	# TODO:
 	Write-Output('[i] Install Wazuh')
 	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -704,16 +717,16 @@ function INSTALL_WAZUH () {
 	Write-Output('[+] Wazuh install finished')
 }
 
-# TODO: CHECK_POWERSHELL_DEFAULT_REPOSITORY
-BLOCK_WIN11_UPGRADE
-SET_HOSTNAME
-INSTALL_ATERA
-DISABLE_WINDOWS_UPDATE_IF_ATERA_NOT_EXISTS
-DISABLE_OBEE
-SET_FIREWALL_RULE_PING_ALLOW
-REMOVE_LEGACY_COMPONENTS
-INSTALL_WAZUH
-# TODO: INSTALL_DOT_NET
+# TODO: Add-PowershellDefaultRepository
+Disable-Windows11Upgrade
+Set-Hostname
+Install-Atera
+Disable-WindowsUpdateIfAteraNotPresent
+Disable-Obee
+Set-FirewallRulePingAllow
+Uninstall-LegacyComponents
+Install-Wazuh
+# TODO: Install-DotNet
 
 <# TODO :
 VALIDATE_WINDOWS_ACCOUNTS
