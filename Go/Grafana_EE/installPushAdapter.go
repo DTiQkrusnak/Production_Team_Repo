@@ -7,8 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
+	"golang.org/x/exp/slices"
 	"golang.org/x/sys/windows/registry"
+	"golang.org/x/sys/windows/svc/mgr"
 )
 
 func readInstanceNameFromRegistry() string {
@@ -51,9 +54,25 @@ func createPushAdapterJsonConfiguration(instanceName *string) {
 	CheckErrorPanic("Cannot write to config file", err)
 }
 
-func registerPushAdapterWindowsService() {
+func registerPushAdapterWindowsService(serviceManager *mgr.Mgr) {
 	nssm_path := "resources/adapter-x64/nssm.exe"
-	err := exec.Command(nssm_path, "install", "Pushgateway.Adapter", "Pushgateway.Adapter.exe").Run()
+	servicesList, err := serviceManager.ListServices()
+	CheckErrorPanic("Cannot get services list", err)
+
+	retryRate := 10
+	for slices.Contains(servicesList, "Pushgateway.Adapter") || retryRate == 0 {
+		if retryRate > 0 {
+			time.Sleep(1 * time.Second)
+			retryRate -= 1
+			servicesList, err = serviceManager.ListServices()
+			CheckErrorPanic("Cannot get services list", err)
+			continue
+		} else {
+			break
+		}
+	}
+
+	err = exec.Command(nssm_path, "install", "Pushgateway.Adapter", "Pushgateway.Adapter.exe").Run()
 	CheckErrorPanic("Cannot register Push Adapter service with nssm", err)
 
 	err = exec.Command(nssm_path, "start", "Pushgateway.Adapter").Run()

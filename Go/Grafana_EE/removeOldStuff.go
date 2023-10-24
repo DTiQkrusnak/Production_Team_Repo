@@ -41,7 +41,8 @@ func checkComponentsToRemove(serviceManager *mgr.Mgr) {
 
 		err = pushGatewayService.Delete()
 		CheckErrorPanic("Cannot delete Pushgateway.Adapter", err)
-		defer pushGatewayService.Close()
+		err = pushGatewayService.Close()
+		CheckErrorPanic("Cannot close service handle", err)
 	}
 
 	if slices.Contains(servicesList, "Wmi exporter") {

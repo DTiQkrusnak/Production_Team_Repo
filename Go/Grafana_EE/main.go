@@ -37,7 +37,7 @@ func main() {
 		go installNewWindowsExporter()
 		instanceName := readInstanceNameFromRegistry()
 		createPushAdapterJsonConfiguration(&instanceName)
-		registerPushAdapterWindowsService()
+		registerPushAdapterWindowsService(serviceManager)
 		routinesWaitGroup.Wait()
 		log.Println("Installation Successful")
 	}
