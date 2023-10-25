@@ -166,21 +166,25 @@ function Install-Atera() {
 			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'FolderId' -Force -ErrorAction SilentlyContinue
 			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'ServerName' -Force -ErrorAction SilentlyContinue
 			Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\ATERA Networks\AteraAgent' -Name 'DisabledRemote' -Force -ErrorAction SilentlyContinue
+
+			# Powershell 7 support for Atera removal
 			if ($PSVersionTable.PSVersion.Major -eq 7) {
 				Write-Output('[i] PS 7 detected, removing AteraAgent service with builtin cmdlet')
 				Get-Service -DisplayName 'AteraAgent' -ErrorAction SilentlyContinue | Remove-Service -ErrorAction SilentlyContinue
 			}
+
+			# In case powershell 7 cannot remote Atera or powershell 5 is present only follow removal with below
 			if (Get-Service -DisplayName 'AteraAgent' -ErrorAction SilentlyContinue) {
 				$ateraServiceController = [System.ServiceProcess.ServiceController]::new('AteraAgent')
-				if ($ateraServiceController.Name -ne 'AteraAgent') {
-					Write-Output('[-] Atera service controller cannot be created, deleting with sc.exe')
-					# Kept as fallback
-					sc.exe delete AteraAgent
-				} else {
+				if ($ateraServiceController.Name -eq 'AteraAgent') {
 					$serviceInstaller = [System.ServiceProcess.ServiceInstaller]::new()
 					$serviceInstaller.ServiceName = 'AteraAgent'
 					$serviceInstaller.Context = [System.Configuration.Install.InstallContext]::new($null, $null)
 					$serviceInstaller.Uninstall($null)
+				} else {
+					Write-Output('[-] Atera service controller cannot be created, deleting with sc.exe')
+					# Kept as fallback
+					sc.exe delete AteraAgent
 				}
 			}
 		}
