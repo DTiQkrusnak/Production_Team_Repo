@@ -9,6 +9,32 @@ and blocks out updates that are not maintained or pushed by production team
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+class FileProperties {
+	[string]$name
+	[string]$version
+	[string]$url
+	[string]$checksum
+
+	fileProperties([string]$name, [string]$version, [string]$url, [string]$checksum) {
+		$this.Name = $name
+		$this.version = $version
+		$this.Url = $url
+		$this.Checksum = $checksum
+	}
+}
+
+$dotnetVersionsToDownload = [FileProperties]::new(
+	"ndp48-x86-x64-allos-enu.exe",
+	"4.8.03761",
+	"https://download.visualstudio.microsoft.com/download/pr/2d6bb6b2-226a-4baa-bdec-798822606ff1/8494001c276a4b96804cde7829c04d7f/ndp48-x86-x64-allos-enu.exe",
+	"FFB6C226AF4E5C8FFA7210D5115701883ABF12A8B1CBAE6E08122FB94DD93763468BFF5B00060EABEF19C147B0A4D8063DDE318D2B928CE397C58F7949736C5F"
+), [FileProperties]::new(
+	"windowsdesktop-runtime-6.0.15-win-x64.exe",
+	"6.0.15",
+	"https://download.visualstudio.microsoft.com/download/pr/513d13b7-b456-45af-828b-b7b7981ff462/edf44a743b78f8b54a2cec97ce888346/windowsdesktop-runtime-6.0.15-win-x64.exe",
+	"62412c45ba5ebf89b0ea2c3d9dcce3a7f05198d4db368f63956f7ae58b368baa059343a2de39d24e20ffe126145f31c72131914cb2793f002921a975e69c3bb4"
+)
+
 function Add-PowershellDefaultRepository() {
 	<#
 	.SYNOPSIS
@@ -92,8 +118,21 @@ function Disable-WindowsUpdateIfAteraNotPresent() {
 		$winUpdateService = Get-Service -Name "wuauserv" -ErrorAction SilentlyContinue
 
 		Write-Output("[i] Stopping windows update service")
-		$winUpdateService | Stop-Service -Force -ErrorAction SilentlyContinue
-		Write-Output("[+] $($winUpdateService.DisplayName) service stopped")
+		$winUpdateService | Stop-Service -Force -NoWait -ErrorAction SilentlyContinue
+
+		# Wait for Windows Update service to stop with 5 seconds timeout
+		for ($i = 0; $i -lt 11; $i++) {
+			if ($i -eq 10) {
+				Write-Error('[-] Windows Update cannot be stopped, system will continue stopping it on its own, timed out (5s)')
+				break
+			} elseif ($winUpdateService.Status -ne 'Stopped') {
+				Start-Sleep -Milliseconds 500
+				$winUpdateService.Refresh()
+			} else {
+				Write-Output("[+] $($winUpdateService.DisplayName) service stopped")
+				break
+			}
+		}
 
 		Write-Output("[i] Disabling windows update service")
 		$winUpdateService | Set-Service -StartupType "Disabled"
@@ -562,9 +601,9 @@ function Uninstall-LegacyComponents() {
 	Write-Output('[+] Finished removing Legacy components')
 }
 
-function Install-DotNet() {
+function Get-DotNetFiles() {
 	# TODO:
-	Write-Output('[i] Install .NET')
+	Write-Output('[i] Get .NET files')
 	[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 	if([System.Environment]::Is64BitOperatingSystem) {
 		Write-Output('[+] x64 system')
@@ -574,66 +613,96 @@ function Install-DotNet() {
 			New-Item -Force $dotnetDownloadPath -ItemType Directory | Out-Null
 		}
 		Write-Output("[+] $dotnetDownloadPath verified")
-		class FileProperties {
-			[string]$name
-			[string]$version
-			[string]$url
-			[string]$checksum
+
+		# Gather all installed versions of .NET from registry
+		[System.Version[]] $dotnetVersionsRegistry = (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
+		$dotnetVersionsRegistry += (Get-ChildItem 'HKLM:\SOFTWARE\dotnet' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
 		
-			fileProperties([string]$name, [string]$version, [string]$url, [string]$checksum) {
-				$this.Name = $name
-				$this.version = $version
-				$this.Url = $url
-				$this.Checksum = $checksum
+		$jobs = @()
+		foreach ($item in $dotnetVersionsToDownload) {
+			[System.Version] $itemVersion = $item.Version
+			$greaterVersions = $dotnetVersionsRegistry | Where-Object {$_.Major -eq $itemVersion.Major} | Where-Object {$_.Minor -eq $itemVersion.Minor} | Where-Object {$_.Build -ge $itemVersion.Build}
+			if ($greaterVersions.Count -gt 0) {
+				Write-Output("Greater or equal version already in system, skipping $itemVersion")
+				continue
+			} else {
+				Write-Output("[i] Downloading $($item.Name)")
+				$jobs += Start-Job -Name $($item.Name) -ScriptBlock {
+					param(
+						$dotnetDownloadPath,
+						$item
+						)
+					
+					Set-Location -LiteralPath $dotnetDownloadPath
+					try {
+						Invoke-RestMethod -Uri $item.Url -OutFile $item.Name
+						Write-Output("[+] Download of $($item.Name) comleted")
+					} catch {
+						Write-Output("[-] Download of $($item.Name) failure")
+					}
+
+					if ((Get-FileHash -Algorithm SHA512 -Path $item.Name).Hash -ne $item.Checksum) {
+						Remove-Item -Path $item.Name
+						Write-Error("[-] $($item.Name) hash not matching")
+					}
+				} -ArgumentList $dotnetDownloadPath, $item
+				continue
 			}
 		}
 		
-		$dotnetVersionsToDownload = [FileProperties]::new(
-			"ndp48-x86-x64-allos-enu.exe",
-			"4.8.03761",
-			"https://download.visualstudio.microsoft.com/download/pr/2d6bb6b2-226a-4baa-bdec-798822606ff1/8494001c276a4b96804cde7829c04d7f/ndp48-x86-x64-allos-enu.exe",
-			"FFB6C226AF4E5C8FFA7210D5115701883ABF12A8B1CBAE6E08122FB94DD93763468BFF5B00060EABEF19C147B0A4D8063DDE318D2B928CE397C58F7949736C5F"
-		), [FileProperties]::new(
-			"windowsdesktop-runtime-6.0.15-win-x64.exe",
-			"6.0.15",
-			"https://download.visualstudio.microsoft.com/download/pr/513d13b7-b456-45af-828b-b7b7981ff462/edf44a743b78f8b54a2cec97ce888346/windowsdesktop-runtime-6.0.15-win-x64.exe",
-			"62412c45ba5ebf89b0ea2c3d9dcce3a7f05198d4db368f63956f7ae58b368baa059343a2de39d24e20ffe126145f31c72131914cb2793f002921a975e69c3bb4"
-		)
-
-		# Gather all installed versions of .NET from registry
-		$dotnetVersionsRegistry = (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
-		$dotnetVersionsRegistry += (Get-ChildItem 'HKLM:\SOFTWARE\dotnet' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
-		Set-Location -LiteralPath $dotnetDownloadPath
-		foreach ($item in $dotnetVersionsToDownload) {
-			if ($dotnetVersionsRegistry -contains $item.version) {
-				Continue
-			}
-			Write-Output("[i] Downloading $($item.Name)")
-			try {
-				Invoke-RestMethod -Uri $item.Url -OutFile $item.Name
-				Write-Output("[+] Download of $($item.Name) comleted")
-			} catch {
-				Write-Output("[-] Download of $($item.Name) failure")
-			}
-			
-			if ((Get-FileHash -Algorithm SHA512 -Path $item.Name).Hash -ne $item.Checksum) {
-				Remove-Item -Path $item.Name
-				Write-Error("[-] $($item.Name) hash not matching")
-				continue
-			}
-
-			try {
-				Write-Output("[i] Installing $($item.Name)")
-				Start-Process -FilePath $item.Name -ArgumentList ('/q', '/norestart')
-				Write-Output("[+] Installation $($item.Name) running in background")
-			} catch {
-				Write-Error("[-] $($item.Name) installation error")
-				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Stop-Process -Force
-				continue
-			}
+		# Check if any jobs were scheduled
+		if ($jobs) {
+			Write-Output(Get-Job)
+			Wait-Job -Job $jobs
+			Write-Output('[+] .Net files downloaded')
+			return
+		} else {
+			Write-Output('[+] No version of .Net to download, finished')
+			return
 		}
 	} else {
 		Write-Output('[-] x86 system, skipping .NET installlation')
+	}
+}
+
+
+function Install-DotNet() {
+	<#
+	.SYNOPSIS
+	Install .Net versions downloaded in Get-DotNetFiles function.
+	.DESCRIPTION
+	All versions specified in variable $dotnetVersionsToDownload are run in quiet installation mode if version is not visible in system.
+	TODO: Skip version 4.8 if version is higher
+	#>
+	Write-Output('[i] Install .NET')
+	$dotnetDownloadPath = 'C:\ProgramData\DTiQ'
+
+	if (!(Test-Path $dotnetDownloadPath)) {
+		Write-Error('[-] .Net download folder does not exist, skipping installation because of missing files')
+	}
+	Write-Output("[+] $dotnetDownloadPath verified")
+	Set-Location -LiteralPath $dotnetDownloadPath
+
+	# Gather all installed versions of .NET from registry
+	[System.Version[]] $dotnetVersionsRegistry = (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
+	$dotnetVersionsRegistry += (Get-ChildItem 'HKLM:\SOFTWARE\dotnet' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
+	
+	foreach ($item in $dotnetVersionsToDownload) {
+		[System.Version] $itemVersion = $item.Version
+		$greaterVersions = $dotnetVersionsRegistry | Where-Object {$_.Major -eq $itemVersion.Major} | Where-Object {$_.Minor -eq $itemVersion.Minor} | Where-Object {$_.Build -ge $itemVersion.Build}
+		if ($greaterVersions.Count -gt 0) {
+			Write-Output("Greater or equal version already in system, skipping $itemVersion")
+			continue
+		} else {
+			try {
+				Write-Output("[i] Installing $($item.Name)")
+				Start-Process -FilePath $($item.Name) -ArgumentList ('/q', '/norestart')
+				Write-Output("[+] Installation $($item.Name) running in background")
+			} catch {
+				Write-Error("[-] $($item.Name) installation error")
+			}
+			continue
+		}
 	}
 }
 
@@ -721,7 +790,9 @@ function Install-Wazuh() {
 	Write-Output('[+] Wazuh install finished')
 }
 
+$startTime = Get-Date
 # TODO: Add-PowershellDefaultRepository
+Get-DotNetFiles
 Disable-Windows11Upgrade
 Set-Hostname
 Install-Atera
@@ -730,9 +801,11 @@ Disable-Obee
 Set-FirewallRulePingAllow
 Uninstall-LegacyComponents
 Install-Wazuh
-# TODO: Install-DotNet
+Install-DotNet
 
 <# TODO :
 VALIDATE_WINDOWS_ACCOUNTS
 SET_FOLDER_TREE_ACLS
 #>
+
+Write-Output("[i] Script run time statistics in seconds : $(((Get-Date) - $startTime).TotalSeconds)")
