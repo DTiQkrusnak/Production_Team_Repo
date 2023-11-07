@@ -79,7 +79,9 @@ $pathsToWhitelistForClient = @(
     "C:\Program` Files` (x86)\EZUniverse\360iQPVMController"
 )
 foreach($path in $pathsToWhitelistForClient) {
-    if (!(Test-Path -Path $path)) { continue }
+    if (!(Test-Path -Path $path)) { 
+        Write-Output("Path does not exist, skipping: $path")
+    }
     Get-ChildItem -Recurse -Path $path | Get-NTFSInheritance | Where-Object { -not $_.InheritanceEnabled } | Enable-NTFSAccessInheritance -RemoveExplicitAccessRules
 
     try {
