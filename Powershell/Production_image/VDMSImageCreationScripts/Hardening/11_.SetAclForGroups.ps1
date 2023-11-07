@@ -41,7 +41,8 @@ $pathsToDenyAccessForClient = @(
     "C:\EZVideoPlayerMovies",
     "C:\Program` Files` (x86)\EZUniverse",
     "C:\Program` Files\EZUniverse",
-    "C:\onstartup"
+    "C:\onstartup",
+    "C:\InfluxDB"
 )
 foreach($path in $pathsToDenyAccessForClient) {
     if (!(Test-Path -Path $path)) { continue }

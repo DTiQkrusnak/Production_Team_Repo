@@ -13,7 +13,8 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $listOfModules = @(
     "Nuget",
-    "SqlServer"
+    "SqlServer",
+    "NTFSSecurity"
 )
 
 $listOfWindowsFeatures = @(

@@ -5,7 +5,8 @@
 
 $listOfModules = @(
     "Nuget",
-    "SqlServer"
+    "SqlServer",
+    "NTFSSecurity"
 )
 
 $listOfWindowsFeatures = @(
