@@ -76,7 +76,8 @@ foreach ($recycleBin in $recycleBins) {
 
 $pathsToWhitelistForClient = @(
     "C:\Program` Files` (x86)\EZUniverse\360iQViewer",
-    "C:\Program` Files` (x86)\EZUniverse\360iQPVMController"
+    "C:\Program` Files` (x86)\EZUniverse\360iQPVMController",
+    "C:\Program` Files` (x86)\EZUniverse\EZ360Controller\EZ360MotionDetection"
 )
 foreach($path in $pathsToWhitelistForClient) {
     if (!(Test-Path -Path $path)) { 
