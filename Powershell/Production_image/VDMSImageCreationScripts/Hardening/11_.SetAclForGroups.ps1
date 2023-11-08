@@ -11,13 +11,14 @@ $listOfPossibleClientAccounts = @(
 
 #------- FUNCTIONS SETUP -------
 function Get-ClientAccount {
-    # Find all active users that match provided list, useful for finding multiple admin or client accounts
+    <#
+    .SYNOPSIS
+    Find all active users that match provided list, useful for finding multiple admin or client accounts
+    .PARAMETER Users
+    All account names to look for in enabled accounts list
+    #>
+    
     param (
-        <#
-            PARAMETERS
-            _______
-            Users | All account names to look for in enabled accounts list
-        #>
         [Parameter(Mandatory, ValueFromPipeline)] [string[]] $Users
     )
 
@@ -87,6 +88,7 @@ foreach($path in $pathsToWhitelistForClient) {
 
     try {
         Disable-NTFSAccessInheritance -Path $path
+        Remove-NTFSAccess -AccessRights FullControl -Account $clientAccount -Path $path -AccessType Deny
         Add-NTFSAccess -AccessRights Modify -Account $clientAccount -Path $path -AccessType Allow
     } catch {
         Write-Error($_)
