@@ -223,6 +223,17 @@ function Disable-Obee() {
 	} catch {
 		Write-Error("[-]  $($_.Exception.Message)")
 	}
+	# New Bing bar disable
+	try {
+		$logonAnimationPath = 'Registry::HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Edge'
+		if (!(Test-path $logonAnimationPath)) {
+			New-Item -Path $logonAnimationPath -Force
+		}
+		New-ItemProperty -Path $logonAnimationPath -Name 'WebWidgetIsEnabledOnStartup' -Value 0 -PropertyType DWord -Force | Out-Null
+		New-ItemProperty -Path $logonAnimationPath -Name 'WebWidgetAllowed' -Value 0 -PropertyType DWord -Force | Out-Null
+	} catch {
+		Write-Error("[-]  $($_.Exception.Message)")
+	}
 }
 
 function Set-FirewallRulePingAllow() {
