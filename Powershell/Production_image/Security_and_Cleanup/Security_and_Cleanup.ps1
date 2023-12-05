@@ -9,6 +9,17 @@ and blocks out updates that are not maintained or pushed by production team
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+function Install-Packages() {
+	try {
+		Install-PackageProvider -Name 'NuGet' -MinimumVersion 2.8.5.201 -Confirm:$false -ErrorAction Stop
+		Install-Module -Name 'SqlServer' -Confirm:$false -Force -ErrorAction Stop
+	} catch {
+		return
+	}
+}
+
+$script:gatheredErrors = @()
+
 class FileProperties {
 	[string]$name
 	[string]$version
@@ -22,6 +33,8 @@ class FileProperties {
 		$this.Checksum = $checksum
 	}
 }
+
+$controllerInstallerDownloadPath = 'C:\ProgramData\EZUniverse\EZ360ControllerInstaller\Downloads'
 
 $dotnetVersionsToDownload = [FileProperties]::new(
 	"ndp48-x86-x64-allos-enu.exe",
@@ -62,6 +75,7 @@ function Disable-Windows11Upgrade() {
 	$regPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
 
 	try {
+		# ! TO REWORK > Invalid class win32_operatingsystem
 		$system = (Get-WMIObject win32_operatingsystem).Caption
 
 		if ($system -like "*Windows*10*") {
@@ -79,7 +93,8 @@ function Disable-Windows11Upgrade() {
 			Write-Output("[-] function is executing fix only on Windows 10, your Windows : $system")
 		}
 	} catch {
-		Write-Error("[-]  $($_.Exception.Message)")
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
 }
 
@@ -123,7 +138,8 @@ function Disable-WindowsUpdateIfAteraNotPresent() {
 		# Wait for Windows Update service to stop with 5 seconds timeout
 		for ($i = 0; $i -lt 11; $i++) {
 			if ($i -eq 10) {
-				Write-Error('[-] Windows Update cannot be stopped, system will continue stopping it on its own, timed out (5s)')
+				$script:gatheredErrors += ('[-] Windows Update cannot be stopped, system will continue stopping it on its own, timed out (5s)')
+				Write-Output('[-] Windows Update cannot be stopped, system will continue stopping it on its own, timed out (5s)')
 				break
 			} elseif ($winUpdateService.Status -ne 'Stopped') {
 				Start-Sleep -Milliseconds 500
@@ -144,7 +160,8 @@ function Disable-WindowsUpdateIfAteraNotPresent() {
 		CHECK if 'BITS' and 'DoSvc' has to be disabled here as well
 		#>
 	} catch {
-		Write-Error("[-]  $($_.Exception.Message)")
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
 }
 
@@ -167,11 +184,19 @@ function Set-Hostname() {
 		WHERE [Status] = 'Y'
 '@
 
-		if ($PSVersionTable.PSVersion.Major -eq 7){
-			$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -TrustServerCertificate).ControllerId
-		} else {
-			$controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System').ControllerId
+
+		# PS Version independent sql connection
+		try {
+			try {
+				$script:controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -TrustServerCertificate  -ErrorAction Stop).ControllerId
+			} catch {
+				$script:controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -ErrorAction Stop).ControllerId
+			}
+		} catch {
+			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+			Write-Output("[-]  $($_.Exception.Message)")
 		}
+		
 		[System.Data.SqlClient.SqlConnection]::ClearAllPools()
 
 		# Check if hostname matches VDMS standard
@@ -183,7 +208,8 @@ function Set-Hostname() {
 			Write-Output('[+] Set hostname completed')
 		}
 	} catch {
-		Write-Error("[-]  $($_.Exception.Message)")
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
 }
 
@@ -201,7 +227,8 @@ function Disable-Obee() {
 		}
 		New-ItemProperty -Path $logonAnimationPath -Name 'EnableFirstLogonAnimation' -Value 0 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-]  $($_.Exception.Message)")
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
 
 	try {
@@ -211,7 +238,8 @@ function Disable-Obee() {
 		}
 		New-ItemProperty -Path $privacyExperiencePath -Name 'DisablePrivacyExperience' -Value 1 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-]  $($_.Exception.Message)")
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
 
 	try {
@@ -221,7 +249,8 @@ function Disable-Obee() {
 		}
 		New-ItemProperty -Path $consumerFeaturesPath -Name 'DisableWindowsConsumerFeatures' -Value 1 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-]  $($_.Exception.Message)")
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
 	# New Bing bar disable
 	try {
@@ -232,7 +261,8 @@ function Disable-Obee() {
 		New-ItemProperty -Path $logonAnimationPath -Name 'WebWidgetIsEnabledOnStartup' -Value 0 -PropertyType DWord -Force | Out-Null
 		New-ItemProperty -Path $logonAnimationPath -Name 'WebWidgetAllowed' -Value 0 -PropertyType DWord -Force | Out-Null
 	} catch {
-		Write-Error("[-]  $($_.Exception.Message)")
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
 }
 
@@ -345,10 +375,11 @@ function Uninstall-LegacyComponents() {
 			$path = $_.UninstallString -split ' '
 			try {
 				$proc = Start-Process $path[0] -ArgumentList ($path[1], '/qn') -PassThru -NoNewWindow
-				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Wait-Process -Timeout 10
+				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Wait-Process -Timeout 10 -ErrorAction Stop
 				Write-Output("[+] Uninstalled $($_.DisplayName)")
 			} catch {
-				Write-Error("[-] $($name) Timed out")
+				$script:gatheredErrors += ("[-] $($name) Timed out")
+				Write-Output("[-] $($name) Timed out")
 				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Stop-Process -Force
 				Get-Process -Name 'msiexec.exe' -ErrorAction SilentlyContinue | Stop-Process -Force
 			}
@@ -373,19 +404,21 @@ function Uninstall-LegacyComponents() {
 			$datFilePath = $path[1]
 			$datFilePath = $datFilePath.Replace('.exe', '.dat')
 			if (-not(Test-Path -LiteralPath $datFilePath)) {
-				Write-Error("[-] Missing file $($datFilePath), skipping")
+				$script:gatheredErrors += ("[-] Missing file $($datFilePath), skipping")
+				Write-Output("[-] Missing file $($datFilePath), skipping")
 				Continue
 			}
 			Write-Output("[i] Uninstalling $($_.DisplayName)")
 
 			try {
 				$proc = Start-Process $path[1] -ArgumentList $($path[2..($path.Length -2)]) -PassThru -NoNewWindow
-				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Wait-Process -Timeout 10
+				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Wait-Process -Timeout 10 -ErrorAction Stop
 				Write-Output("[+] Uninstalled $($_.DisplayName)")
 			} catch {
-				Write-Error("[-] $($path[1]) Timed out on $($proc)")
-				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Stop-Process -Force
-				Get-Process -Name '*.tmp' -ErrorAction SilentlyContinue | Stop-Process -Force
+				$script:gatheredErrors += ("[-] $($path[1]) Timed out on $($proc)")
+				Write-Output("[-] $($path[1]) Timed out on $($proc)")
+				Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+				Get-Process -Name '*.tmp' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 			}
 		}
 	}
@@ -396,7 +429,7 @@ function Uninstall-LegacyComponents() {
 			Set-Service -Name 'MSSQL$SQLEXPRESS' -StartupType Disabled
 			Write-Output('[+] Disabled legacy SQLSERVER')
 		} catch {
-			Write-Error("[-]  $($_.Exception.Message)")
+			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
 		}
 	}
 	Write-Output('[+] Finished removing Legacy components')
@@ -409,11 +442,10 @@ function Get-DotNetFiles() {
 	if([System.Environment]::Is64BitOperatingSystem) {
 		Write-Output('[+] x64 system')
 
-		$dotnetDownloadPath = 'C:\ProgramData\DTiQ'
-		if (!(Test-Path $dotnetDownloadPath)) {
-			New-Item -Force $dotnetDownloadPath -ItemType Directory | Out-Null
+		if (!(Test-Path $controllerInstallerDownloadPath)) {
+			New-Item -Force $controllerInstallerDownloadPath -ItemType Directory | Out-Null
 		}
-		Write-Output("[+] $dotnetDownloadPath verified")
+		Write-Output("[+] $controllerInstallerDownloadPath verified")
 
 		# Gather all installed versions of .NET from registry
 		[System.Version[]] $dotnetVersionsRegistry = (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
@@ -430,11 +462,11 @@ function Get-DotNetFiles() {
 				Write-Output("[i] Downloading $($item.Name)")
 				$jobs += Start-Job -Name $($item.Name) -ScriptBlock {
 					param(
-						$dotnetDownloadPath,
+						$controllerInstallerDownloadPath,
 						$item
 						)
 					
-					Set-Location -LiteralPath $dotnetDownloadPath
+					Set-Location -LiteralPath $controllerInstallerDownloadPath
 					try {
 						Invoke-RestMethod -Uri $item.Url -OutFile $item.Name
 						Write-Output("[+] Download of $($item.Name) comleted")
@@ -444,9 +476,10 @@ function Get-DotNetFiles() {
 
 					if ((Get-FileHash -Algorithm SHA512 -Path $item.Name).Hash -ne $item.Checksum) {
 						Remove-Item -Path $item.Name
-						Write-Error("[-] $($item.Name) hash not matching")
+						$script:gatheredErrors += ("[-] $($item.Name) hash not matching")
+						Write-Output("[-] $($item.Name) hash not matching")
 					}
-				} -ArgumentList $dotnetDownloadPath, $item
+				} -ArgumentList $controllerInstallerDownloadPath, $item
 				continue
 			}
 		}
@@ -476,13 +509,14 @@ function Install-DotNet() {
 	TODO: Skip version 4.8 if version is higher
 	#>
 	Write-Output('[i] Install .NET')
-	$dotnetDownloadPath = 'C:\ProgramData\DTiQ'
+	
 
-	if (!(Test-Path $dotnetDownloadPath)) {
-		Write-Error('[-] .Net download folder does not exist, skipping installation because of missing files')
+	if (!(Test-Path $controllerInstallerDownloadPath)) {
+		$script:gatheredErrors += ('[-] .Net download folder does not exist, skipping installation because of missing files')
+		Write-Output('[-] .Net download folder does not exist, skipping installation because of missing files')
 	}
-	Write-Output("[+] $dotnetDownloadPath verified")
-	Set-Location -LiteralPath $dotnetDownloadPath
+	Write-Output("[+] $controllerInstallerDownloadPath verified")
+	Set-Location -LiteralPath $controllerInstallerDownloadPath
 
 	# Gather all installed versions of .NET from registry
 	[System.Version[]] $dotnetVersionsRegistry = (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name Version -ErrorAction SilentlyContinue | Select-Object Version).Version
@@ -500,7 +534,8 @@ function Install-DotNet() {
 				Start-Process -FilePath $($item.Name) -ArgumentList ('/q', '/norestart')
 				Write-Output("[+] Installation $($item.Name) running in background")
 			} catch {
-				Write-Error("[-] $($item.Name) installation error")
+				$script:gatheredErrors += ("[-] $($_.Exception.Message)")
+				Write-Output("[-] $($_.Exception.Message)")
 			}
 			continue
 		}
@@ -535,8 +570,13 @@ function Install-Wazuh() {
 	Write-Output('[i] Sysmon cleanup running')
 	Set-Location -LiteralPath $sysmonInstallPath
 
-	$(cmd /c '.\Sysmon64.exe -u 2>&1' > logfile.txt 2>&1) | Out-Null
-	if (Get-Content -LiteralPath $sysmonInstallPath/logfile.txt | Select-String -SimpleMatch 'Removing service files.') {
+	try {
+		$(cmd /c '.\Sysmon64.exe -u 2>&1' > logfile.txt 2>&1) | Out-Null
+	} catch {
+		$script:gatheredErrors += ("[-] $($_.Exception.Message)")
+		Write-Output("[-] $($_.Exception.Message)")
+	}
+	if (Get-Content -LiteralPath $sysmonInstallPath/logfile.txt -ErrorAction SilentlyContinue | Select-String -SimpleMatch 'Removing service files.') {
 		Write-Output('[+] Sysmon cleanup successfull')
 	} else {
 		Write-Output('[i] Sysmon not cleaned up')
@@ -547,8 +587,14 @@ function Install-Wazuh() {
 	# With this setup we can kill off process without being stuck forever on installation
 	$sysmonInstallPath = 'C:\DTIQ'
 	Set-Location $sysmonInstallPath
-	$(cmd /c '.\Sysmon64.exe -i sysconfig.xml -accepteula 2>&1' > logfile.txt 2>&1) | Out-Null
-	if (Get-Content -LiteralPath $sysmonInstallPath/logfile.txt | Select-String -SimpleMatch 'Sysmon64 started.') {
+
+	try {
+		$(cmd /c '.\Sysmon64.exe -i sysconfig.xml -accepteula 2>&1' > logfile.txt 2>&1) | Out-Null
+	} catch {
+		$script:gatheredErrors += ("[-] $($_.Exception.Message)")
+		Write-Output("[-] $($_.Exception.Message)")
+	}
+	if (Get-Content -LiteralPath $sysmonInstallPath/logfile.txt -ErrorAction SilentlyContinue | Select-String -SimpleMatch 'Sysmon64 started.') {
 		Write-Output('[+] Sysmon installation successfull')
 	} else {
 		Write-Output('[i] Sysmon installer failed')
@@ -565,7 +611,8 @@ function Install-Wazuh() {
 		Invoke-WebRequest -Uri 'https://dtt-it.s3.amazonaws.com/VPN/wazuh-agent.msi' -OutFile $env:tmp\wazuh-agent.msi -ErrorAction Stop
 		Write-Output('[+] Wazuh download completed')
 	} catch {
-		Write-Error("[-]  $($_.Exception.Message)")
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
 		return
 	}
 
@@ -579,7 +626,8 @@ function Install-Wazuh() {
 			$DTTLocationName = $iniData[0].Split('=')[1]
 			$NameTrimmedDTT = $DTTLocationName -replace '[^a-zA-Z0-9]', ''
 		} catch {
-			Write-Error('[-] Cannot trim location name from GeoMulti.ini file')
+			$script:gatheredErrors += ('[-] Cannot trim location name from GeoMulti.ini file')
+			Write-Output('[-] Cannot trim location name from GeoMulti.ini file')
 		}
 
 		Write-Output('[+] DTT location identified, installing Wazuh')
@@ -592,8 +640,43 @@ function Install-Wazuh() {
 	Write-Output('[+] Wazuh install finished')
 }
 
+function Push-ErrorLogs([string[]] $script:gatheredErrors) {
+	if ($script:gatheredErrors.Count -eq 0) {
+		Write-Output('[+] No errors to push to Breeze')
+		return
+	} else {
+		$errors = ($script:gatheredErrors | ConvertTo-Json).ToString()
+	}
+	
+    $body = @{
+        locationId      = $script:controllerId
+        locationName    = $script:controllerId
+        timestamp       = Get-Date -UFormat "%m/%d/%Y"
+        timezoneId      = Get-Date -UFormat "%Z"
+        scriptName      = "Security"
+        scriptId        = "503"
+        executionDate   = Get-Date -UFormat "%m/%d/%Y"
+        result          = $errors
+        optionalResult1 = 'NULL'
+        optionalResult2 = 'NULL'
+        optionalResult3 = 'NULL'
+        optionalResult4 = 'NULL'
+        errorCode       = 'NULL'
+        errorDetails    = 'NULL'
+    } | ConvertTo-Json
+
+	try {
+		Invoke-RestMethod -Method Post -Uri 'https://p13fqdhy8i.execute-api.us-east-1.amazonaws.com/prod/LongStoredScriptExecution' -Body $body -ContentType 'application/json' -ErrorAction Stop
+		Write-Output('[+] Errors sent to breeze')
+	} catch {
+		Write-Output('[-] Errors cannot be sent to breeze')
+		return
+	}
+}
+
 $startTime = Get-Date
 # TODO: Add-PowershellDefaultRepository
+Install-Packages
 Get-DotNetFiles
 Disable-Windows11Upgrade
 Set-Hostname
@@ -604,6 +687,7 @@ Set-FirewallRulePingAllow
 Uninstall-LegacyComponents
 Install-Wazuh
 Install-DotNet
+Push-ErrorLogs($script:gatheredErrors)
 
 <# TODO :
 VALIDATE_WINDOWS_ACCOUNTS
