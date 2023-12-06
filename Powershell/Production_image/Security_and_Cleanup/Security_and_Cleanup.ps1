@@ -177,21 +177,8 @@ function Set-Hostname() {
 		[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 		Write-Output('[i] SetHostname')
 
-		# Get ControllerId from database EZ360Objects
-		$getControllerIdQuery = @'
-		SELECT TOP 1 *
-		FROM [EZ360Objects].[Location].[Controllers]
-		WHERE [Status] = 'Y'
-'@
-
-
-		# PS Version independent sql connection
 		try {
-			try {
-				$script:controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -TrustServerCertificate  -ErrorAction Stop).ControllerId
-			} catch {
-				$script:controllerId = (Invoke-Sqlcmd -server '.\EZ360' -Query $getControllerIdQuery -QueryTimeout 30 -Database 'EZ360Objects' -Username 'EZ360System' -Password 'EZ360System' -ErrorAction Stop).ControllerId
-			}
+				$script:controllerId = (Get-ItemProperty -Path 'Registry::HKLM\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -Name 'ControllerID').ControllerID
 		} catch {
 			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
 			Write-Output("[-]  $($_.Exception.Message)")
