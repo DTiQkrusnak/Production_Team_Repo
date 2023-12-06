@@ -25,11 +25,11 @@ function checkDBconnection {
 		$Connection.Open()
 		Write-Host "Connection to database successful." -ForegroundColor green -BackgroundColor black
 		$connection.Close()
-		return
+		return $true
 	}
 	catch {
 		Write-Error($_.Exception.Message)
-		return
+		return $false
 	}
 }
 
@@ -115,10 +115,10 @@ function restartSynchronizer {
 	}
 }
 
-checkDBconnection
+$connectionBool = checkDBconnection
 
 #if connection = true - download file
-if ($Connection) {
+if ($connectionBool) {
 	downloadFile
 	executeSqlV2
 }
