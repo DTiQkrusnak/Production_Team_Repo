@@ -9,12 +9,6 @@ Write-Host "SCRIPT DESCRIPTION: "$scriptDescr -ForegroundColor Gray
 
 $ErrorActionPreference = 'Continue'
 
-$folderName = "HOTFIXSyncTOOff"
-$path = "C:\\ProgramData\\EZUniverse\\EZ360ControllerInstaller\\Downloads\\$folderName"
-$output = "$path\\$foldername.sql"
-
-$patchLinks = 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/TO_Legacy_migration/EZ360Syncronizer_TO_Execution_Disable.sql'
-
 function checkDBconnection {
 	$DBServer = ".\\EZ360"
 	$databasename = "EZ360Controllers"
@@ -33,29 +27,22 @@ function checkDBconnection {
 	}
 }
 
-function downloadFile {
-	try {
-		#create dir
-		if (-not (Test-Path $path)) {
-			New-Item -Path $path -ItemType Directory | Out-Null
-		}
-		Invoke-WebRequest -Uri $patchLinks -OutFile $output -ErrorAction Stop
-		Write-Host 'File downloaded : ' $patchLinks
-	}
-	catch {
-		Write-Error($_.Exception.Message)
-		return
-	}
-}
-
 function executeSqlV2 {
+	$query = @'
+	UPDATE EZ360Controllers.[Config].[ServiceProperties]
+	SET Value = NULL
+	WHERE ServiceID = 122
+	AND KeyPath LIKE 'SyncTextOverlayExecutionInterval'
+'@
+	$connectionString = 'Server=.\EZ360;Database=EZ360Controllers;User Id=EZ360System;Password=EZ360System;TrustServerCertificate=True'
+
+
 	try {
-		Invoke-Sqlcmd -ServerInstance '.\EZ360' -Username 'EZ360System' -Password 'EZ360System' -Query $output -ErrorAction Stop
-		Write-Host 'Patch executed successfully' -ForegroundColor green -BackgroundColor black
+		Invoke-Sqlcmd -ConnectionString $connectionString -Query $query -ErrorAction Stop
 	} catch {
-		Write-Error($_.Exception.Message)
-		return
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
+
 }
 
 

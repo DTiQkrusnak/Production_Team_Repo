@@ -9,12 +9,6 @@ Write-Host 'SCRIPT DESCRIPTION: '$scriptDescr -ForegroundColor Gray
 
 $ErrorActionPreference = 'Continue'
 
-$folderName = 'SyncFix'
-$path = "C:\\ProgramData\\EZUniverse\\EZ360ControllerInstaller\\Downloads\\$folderName"
-$output = "$path\\$folderName.sql"
-
-$patchLinks = 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/SyncTextOverlayOverCCS2.sql'
-
 function checkDBconnection {
 	$DBServer = ".\\EZ360"
 	$databasename = "EZ360Controllers"
@@ -33,29 +27,22 @@ function checkDBconnection {
 	}
 }
 
-function downloadFile {
-	try {
-		#create dir
-		if (-not (Test-Path $path)) {
-			New-Item -Path $path -ItemType Directory | Out-Null
-		}
-		Invoke-WebRequest -Uri $patchLinks -OutFile $output -ErrorAction Stop
-		Write-Host 'File downloaded : ' $patchLinks
-	}
-	catch {
-		Write-Error($_.Exception.Message)
-		return
-	}
-}
-
 function executeSqlV2 {
+	$query = @'
+	UPDATE [EZ360Controllers].[Config].[ServiceProperties]
+	SET Value = 60
+	WHERE ServiceID = 122
+	AND KeyPath LIKE 'SyncTextOverlayExecutionInterval'
+'@
+	$connectionString = 'Server=.\EZ360;Database=EZ360Controllers;User Id=EZ360System;Password=EZ360System;TrustServerCertificate=True'
+
+
 	try {
-		Invoke-Sqlcmd -ServerInstance '.\EZ360' -Username 'EZ360System' -Password 'EZ360System' -Query $output -ErrorAction Stop
-		Write-Host 'Patch executed successfully' -ForegroundColor green -BackgroundColor black
+		Invoke-Sqlcmd -ConnectionString $connectionString -Query $query -ErrorAction Stop
 	} catch {
-		Write-Error($_.Exception.Message)
-		return
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
+
 }
 
 
@@ -119,7 +106,6 @@ $connectionBool = checkDBconnection
 
 #if connection = true - download file
 if ($connectionBool) {
-	downloadFile
 	executeSqlV2
 }
 else {
