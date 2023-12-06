@@ -670,6 +670,7 @@ function Push-ErrorLogs([string[]] $script:gatheredErrors) {
 		Write-Output('[+] Errors sent to breeze')
 	} catch {
 		Write-Output('[-] Errors cannot be sent to breeze')
+		Write-Output("[-] $($_.Exception.Message)")
 		return
 	}
 }
