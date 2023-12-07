@@ -172,19 +172,30 @@ function Set-Hostname() {
 	.DESCRIPTION
 
 	#>
-	# TODO:
+
+	# Get ControllerId from database EZ360Objects
+	$connectionStringEz360 = 'Server=.\EZ360;Database=EZ360Objects;User Id=EZ360System;Password=EZ360System;TrustServerCertificate=True'
+
+	$getControllerIdQuery = @'
+	SELECT TOP 1 *
+	FROM [EZ360Objects].[Location].[Controllers]
+	WHERE [Status] = 'Y'
+'@
+
 	try {
 		[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 		Write-Output('[i] SetHostname')
 
 		try {
-				$script:controllerId = (Get-ItemProperty -Path 'Registry::HKLM\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -Name 'ControllerID').ControllerID
+			$script:controllerId = (Get-ItemProperty -Path 'Registry::HKLM\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -Name 'ControllerID' -ErrorAction SilentlyContinue).ControllerID
+			if ($null -eq $script:controllerId) {
+				$script:controllerId = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $getControllerIdQuery -QueryTimeout 30 -ErrorAction Stop).ControllerId
+			}
 		} catch {
 			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
 			Write-Output("[-]  $($_.Exception.Message)")
+			return
 		}
-		
-		[System.Data.SqlClient.SqlConnection]::ClearAllPools()
 
 		# Check if hostname matches VDMS standard
 		if ($env:COMPUTERNAME -eq "VDMS-$controllerId") {
@@ -633,6 +644,12 @@ function Push-ErrorLogs([string[]] $script:gatheredErrors) {
 		return
 	} else {
 		$errors = ($script:gatheredErrors | ConvertTo-Json).ToString()
+	}
+
+	if ($null -eq $script:controllerId) {
+		Write-Output('[-] ControllerID cannot be obtained with registry and SQL')
+		$script:gatheredErrors += ('[-] ControllerID cannot be obtained with registry and SQL')
+		$script:controllerId = 'N/A'
 	}
 	
     $body = @{
