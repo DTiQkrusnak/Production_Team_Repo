@@ -59,13 +59,11 @@ function CheckPowershellVersion {
 }
 
 function CheckControllerModelInDatabase {
-    $SqlServer    = '.\EZ360'
-    $SqlAuthLogin = 'EZ360System'
-    $SqlAuthPw    = 'EZ360System'
+    $connectionString ='Server=.\EZ360;Database=EZ360Objects;User Id=EZ360System;Password=EZ360System;TrustServerCertificate=True'
     $getModelQuery = 'SELECT ModelId FROM [EZ360Objects].[Location].[Controllers]'
 
     try {
-        $result = Invoke-Sqlcmd -ServerInstance $SqlServer -Username $SqlAuthLogin -Password $SqlAuthPw -Query $getModelQuery -ErrorAction Stop
+        $result = Invoke-Sqlcmd -ConnectionString $connectionString -Query $getModelQuery -ErrorAction Stop
     }
     catch {
         Write-Output('Cannot read model from EZ360 DB')
@@ -91,19 +89,15 @@ function ExecuteQueryOnDatabase {
     Write-Output("$system system found")
 
     if ($system -eq 'Legacy') {
-        $SqlServer    = '.\SQLEXPRESS'
-        $SqlAuthLogin = 'sa'
-        $SqlAuthPw    = 'universe'
+        $hotConnectionString = 'Server=.\SQLEXPRESS;Database=master;User Id=sa;Password=universe;TrustServerCertificate=True'  
     }
 
     if ($system -eq 'VDMS') {
-        $SqlServer    = '.\EZ360'
-        $SqlAuthLogin = 'EZ360System'
-        $SqlAuthPw    = 'EZ360System'
+        $hotConnectionString = 'Server=.\EZ360;Database=master;User Id=EZ360System;Password=EZ360System;TrustServerCertificate=True'  
     }
 
     try {
-        Invoke-Sqlcmd -ServerInstance $SqlServer -Database 'master' -Username $SqlAuthLogin -Password $SqlAuthPw -Query $query -ErrorAction Stop
+        Invoke-Sqlcmd -ConnectionString $hotConnectionString -Query $query -ErrorAction Stop
         return
     } catch {
         Write-Output('SQL query error', $_.Exception.Message)
@@ -235,7 +229,7 @@ function DownloadFlir {
     Write-Output('Downloading Flir files')
     Set-Location -Path $pathPrefix
     try {
-        Invoke-WebRequest -Uri 'https://support.go360iq.com/Solutions/Services/FLIR/flir-1.7.0.9.zip' -OutFile $flirZip
+        Invoke-WebRequest -Uri 'https://files-us-ps2.go360iq.com/_Files/Software/FLIR/flir-1.7.0.9.zip' -OutFile $flirZip
         Write-Output('FLIR Files downloaded')
     }
     catch {
