@@ -1,3 +1,5 @@
+#Requires -RunAsAdministrator
+
 $ErrorActionPreference = 'Stop'
 
 $scriptsLocation = $PSScriptRoot + "\scripts"
@@ -23,8 +25,6 @@ function Invoke-Scripts {
 	}
 }
 
-if ((New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-	Write-Output('[+] Script is running with administrator priviledges') | Tee-Object -Append $scriptsLocation\logs\main.log
-	New-LogsDir
-	Invoke-Scripts
-}
+Write-Output('[+] Script is running with administrator priviledges') | Tee-Object -Append $scriptsLocation\logs\main.log
+New-LogsDir
+Invoke-Scripts
