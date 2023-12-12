@@ -9,16 +9,19 @@ and blocks out updates that are not maintained or pushed by production team
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+$script:gatheredErrors = @()
+
 function Install-Packages() {
 	try {
 		Install-PackageProvider -Name 'NuGet' -MinimumVersion 2.8.5.201 -Confirm:$false -ErrorAction Stop
-		Install-Module -Name 'SqlServer' -Confirm:$false -Force -ErrorAction Stop
+		Install-Module -Name 'SqlServer' -Confirm:$false -Force -AllowClobber -ErrorAction Stop
 	} catch {
-		return
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
 	}
 }
 
-$script:gatheredErrors = @()
+
 
 class FileProperties {
 	[string]$name
@@ -58,9 +61,44 @@ function Add-PowershellDefaultRepository() {
 	Additionally we add shellget.go360iq.com (our internal repository) to repositories for future use
 	#>
 
-	Write-Output('[i] Check powershell repository')
-	if (!(Get-PSRepository | Where-Object { $_.Name -eq 'PSGallery'})) {
-		Register-PSRepository -Default
+	Write-Output('[i] Check powershell repositories')
+	$repos = 'PSGallery', 'ShellGet'
+	try {
+		$missingRepos = (Compare-Object -ReferenceObject $repos -DifferenceObject (Get-PSRepository).Name -ErrorAction Stop).InputObject
+		if ($null -eq $missingRepos) {
+			Write-Output('[+] Repos are already registered')
+			return
+		}
+	} catch {
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
+		return
+	}
+
+	if ($missingRepos -contains 'PSGallery') {
+		try {
+			Register-PSRepository -Default -ErrorAction Stop
+			Write-Output('[+] PSGallery repo has been registered')
+		} catch {
+			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+			Write-Output("[-]  $($_.Exception.Message)")
+		}
+	}
+	
+	if ($missingRepos -contains 'ShellGet') {
+		try {
+			$repoRegistrationParameters = @{
+					Name = "ShellGet"
+					SourceLocation = 'https://shellget.go360iq.com/nuget'
+					InstallationPolicy = 'Trusted'
+					PackageManagementProvider = 'NuGet'
+				}
+			Register-PSRepository @repoRegistrationParameters -ErrorAction Stop
+			Write-Output('[+] ShellGet repo has been registered')
+		} catch {
+			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+			Write-Output("[-]  $($_.Exception.Message)")
+		}
 	}
 }
 function Disable-Windows11Upgrade() {
@@ -680,7 +718,7 @@ function Push-ErrorLogs([string[]] $script:gatheredErrors) {
 }
 
 $startTime = Get-Date
-# TODO: Add-PowershellDefaultRepository
+Add-PowershellDefaultRepository
 Install-Packages
 Get-DotNetFiles
 Disable-Windows11Upgrade
