@@ -54,6 +54,11 @@ function restartSynchronizer {
 
 	$synchronizerService.Stop()
 	$synchronizerService.WaitForStatus('Stopped', '00:00:30')
+	
+	if ($synchronizerService.Status -eq 'Running') {
+		$synchronizerService.Close()
+		taskkill /f /im EZ360ControllerSynchronizer.Service.exe
+	}
 }
 
 $connectionBool = checkDBconnection
