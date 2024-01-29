@@ -1,4 +1,20 @@
+<#
+	.SYNOPSIS
+	- Load hive of another user
+		- if user is logged in use hive by sid
+		- if user is not logged in, load hive
+
+	- Create PSDrive for given hive
+	- Add registry key to disable Windows 10/11 online search
+	- Close hive if user was not logged in
+#>
+
+
 function Disable-WebSearch() {
+	<#
+	.SYNOPSIS
+	Add registry key to client user hive to disable online search in Windows 10/11
+	#>
 	param (
 		[Parameter(Mandatory)] [string] $RegistryHkuRoot
 	)
@@ -15,6 +31,10 @@ function Disable-WebSearch() {
 }
 
 function Get-UserSID([string] $Username) {
+	<#
+	.SYNOPSIS
+	Convert username to it's coresponding SID
+	#>
 	$sid = Get-LocalUser -Name $Username -ErrorAction SilentlyContinue
 	if ($null -eq $sid) {
 		return $null
@@ -23,6 +43,11 @@ function Get-UserSID([string] $Username) {
 }
 
 function Get-UserHive([string] $Username) {
+	<#
+	.SYNOPSIS
+	Check if hive with provided username is already loaded (user is logged in)
+	Returns: Powershell path to hive (Registry::HKU\<SID>)
+	#>
 	$sid = Get-UserSID -Username $Username
 	if (-not($sid)) {
 		throw "Cannot get $Username account SID"
@@ -46,6 +71,10 @@ function Get-UserHive([string] $Username) {
 }
 
 function Close-UserHive() {
+	<#
+	.SYNOPSIS
+	Close hive that was previously loaded, if user is logged in hive is left as is
+	#>
 	param (
 		[Parameter(Mandatory)] [string] $Username,
 		[Parameter(Mandatory)] [string] $hivePath,
@@ -57,6 +86,7 @@ function Close-UserHive() {
 	}
 
 	for ($i = 0; $i -lt $timeout; $i++) {
+		[gc]::Collect()
 		$out = Start-Process -FilePath 'reg' -ArgumentList 'unload', $hivePath -PassThru
 		$out.WaitForExit()
 		if (0 -eq $out.ExitCode) { return }
@@ -66,6 +96,10 @@ function Close-UserHive() {
 }
 
 function Get-IsUserLoggedIn() {
+	<#
+	.SYNOPSIS
+	Return boolean if requested user is currently logged in
+	#>
 	param (
 		[Parameter(Mandatory)] [string] $Username
 	)
