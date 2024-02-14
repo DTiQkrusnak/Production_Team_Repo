@@ -46,7 +46,8 @@ $listOfWindowsFeatures = @(
     "IIS-ISAPIExtensions",
     "IIS-ISAPIFilter",
     "IIS-HttpCompressionStatic",
-    "IIS-ASPNET" 
+    "IIS-ASPNET",
+    "TelnetClient"
 )
 
 
