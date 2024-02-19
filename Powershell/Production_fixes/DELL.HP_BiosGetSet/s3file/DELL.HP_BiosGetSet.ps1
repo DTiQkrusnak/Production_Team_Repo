@@ -379,5 +379,6 @@ else {
     $script:result = 'na'
     $script:optionalResult1 = $null
     Write-Host 'Seems this is no Dell\HP'
+    exit 0
 }
 #InvokeBreeze
