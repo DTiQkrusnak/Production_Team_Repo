@@ -45,7 +45,7 @@ function executeSqlV2 {
 
 }
 
-function restartSynchronizer {
+function forceStopSynchronizer {
 	try {
 		$synchronizerService = Get-Service -Name 'EZ360ControllerSynchronizer' -ErrorAction Stop
 	} catch {
@@ -55,7 +55,7 @@ function restartSynchronizer {
 	$synchronizerService.Stop()
 	$synchronizerService.WaitForStatus('Stopped', '00:00:30')
 	
-	if ($synchronizerService.Status -eq 'Running') {
+	if ($synchronizerService.Status -ne 'Stopped') {
 		$synchronizerService.Close()
 		taskkill /f /im EZ360ControllerSynchronizer.Service.exe
 	}
@@ -73,4 +73,4 @@ else {
 	return
 }
 
-restartSynchronizer
+forceStopSynchronizer
