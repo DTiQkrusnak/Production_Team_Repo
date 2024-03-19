@@ -48,7 +48,7 @@ function RemoveTimeSync_Legacy {
     try {
         if (Test-Path -Path $itemPath) {
             Write-Host "    -> removing script: $itempath"
-            Remove-Item $itemPath -Confirm:$false 
+            Remove-Item $itemPath -Confirm:$false -Force
             Write-Host "    -> script removed"
         }
         else {
