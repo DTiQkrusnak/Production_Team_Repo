@@ -34,7 +34,7 @@ function getPVMConfigurationDB {
       WHERE ServiceID = 290
 "@
     Write-Host "Getting PVM configuration from database"
-    $PVMJSON = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $queryGetPVMJSON -ErrorAction SilentlyContinue -MaxCharLength '100000').Configuration
+    $PVMJSON = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $queryGetPVMJSON -ErrorAction SilentlyContinue -MaxCharLength '100000' -QueryTimeout '120').Configuration
     if ($PVMJSON.Length -eq "0") {
         Write-Host "    -> configuration or table not found"
         exit 0
@@ -84,7 +84,7 @@ function setPVMConfigurationDB {
             WHERE [Index] = $($element.Index)
 "@
         Write-Host "Setting : [ShowControlls] = $($element.ShowControlsBit) WHERE [Index] = $($element.Index)"
-        Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $querySetPVM -ErrorAction SilentlyContinue           
+        Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $querySetPVM -ErrorAction SilentlyContinue -QueryTimeout '120'        
     }
 }
 
@@ -110,7 +110,7 @@ function Invoke-Breezev2 {
     
     function CheckDatabaseState {
         try {
-            $connected = Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query "SELECT TOP 1 [LocationID],[DisplayAs] FROM [EZ360Objects].[Location].[Locations]"  -ErrorAction SilentlyContinue
+            $connected = Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query "SELECT TOP 1 [LocationID],[DisplayAs] FROM [EZ360Objects].[Location].[Locations]"  -ErrorAction SilentlyContinue -QueryTimeout '120'
             $script:locationIDValue = $connected.LocationID
             $script:displayASValue = $connected.DisplayAs
         }
