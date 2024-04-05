@@ -257,6 +257,17 @@ function Disable-Obee() {
 	#>
 	# TODO: Remove old windows prompts for new ones
 	try {
+		$logonAnimationPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\.NETFramework\v4.0.30319'
+		if (!(Test-path $logonAnimationPath)) {
+			throw [System.IO.Path] "$logonAnimationPath not found"
+		}
+		New-ItemProperty -Path $logonAnimationPath -Name 'SystemDefaultTlsVersions' -Value 1 -PropertyType DWord -Force | Out-Null
+	} catch {
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
+	}
+
+	try {
 		$logonAnimationPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
 		if (!(Test-path $logonAnimationPath)) {
 			New-Item -Path $logonAnimationPath -Force
