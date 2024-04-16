@@ -99,7 +99,7 @@ function executeScript {
         $UpdateRestartConfigResult = UpdateRestartConfig $modifyConfigurationResult
 
         if ($UpdateRestartConfigResult -eq $true) {
-            #restartMandatoryServices
+            restartMandatoryServices
         } else {
             Write-Host "Configuration has not been applied"
         }
