@@ -6,17 +6,16 @@ Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
 
 function CheckDatabaseState {
   try {
-    $script:connected = Invoke-Sqlcmd -ServerInstance '.\EZ360' -Username EZ360System -Password EZ360System -Query "SELECT TOP 1 [LocationID],[DisplayAs] FROM [EZ360Objects].[Location].[Locations]"  -ErrorAction SilentlyContinue
-    $script:locationIDValue = $connected.LocationID
-    $script:displayASValue = $connected.DisplayAs
-    Write-Output("  -> connection succesfull")
-    $script:result = "DBConnected"
+    $connected = Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query "SELECT TOP 1 [LocationID],[DisplayAs] FROM [EZ360Objects].[Location].[Locations]" -ErrorAction SilentlyContinue
+    if ($connected) {
+      $script:locationIDValue = $connected.LocationID
+      $script:displayASValue = $connected.DisplayAs
+    }
   }
   catch {
     Write-Output("  -> connection unsuccesfull")
-    $script:locationIDValue = Get-ItemPropertyValue -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\EZUniverse\EZ360ControllerInstaller -name LocationID
-    $script:displayASValue = $locationIDValue
-    $script:result = "DBnotConnected"
+    #Write-Host $_.Exception.Message
+    exit 0
   }
 }
 
