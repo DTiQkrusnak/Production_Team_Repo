@@ -37,7 +37,9 @@ function OnstartupScriptsCleanup {
 
 function CleanFiles {
     $folderPath = @(
-        "C:\Users\Support\Downloads\"
+        "C:\Users\Support\Downloads\*",
+        "C:\ProgramData\EZUniverse\EZ360ControllerInstaller",
+        "C:\Program Files (x86)\EZUniverse\EZ360Controller\360iQControllerInstaller\Raport.log"
     )
 
     Write-Host "Removing contents of : "
