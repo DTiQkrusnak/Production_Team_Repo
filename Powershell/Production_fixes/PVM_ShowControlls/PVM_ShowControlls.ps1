@@ -1,10 +1,13 @@
-$scriptVer = "1.2"
+$scriptVer = "1.3"
 $scriptName = "pvm_showControlsFix"
 $scriptDescr = "insert ShowControls depending on json configuration"
 Write-Output("SCRIPT DESCRIPTION: $scriptName v.$scriptVer")
 Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
 
 <#
+    .VERSION_1.3
+    - added TLS 1.2 protocol so the SQLServer module can be downloaded
+
     .VERSION_1.2
     - fixed database configuration check, now it will properly detect that configuration in db is absent
     - new approach on reinstaling sqlserver module
@@ -17,6 +20,7 @@ Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
 #>
 
 #### Variables
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $PShellVer = $PSVersionTable.PSVersion.Major
 $indexControllsObject = New-Object System.Collections.Generic.List[PSCustomObject]
 $sqlModuleName = Get-Module -Name "SQLServer" -ErrorAction SilentlyContinue
@@ -30,7 +34,7 @@ if (!$getPSGalleryRepo) {
 }
 
 if ($sqlModuleName.Version -ne $sqlModuleVersion) {
-    Uninstall-Module -Name SQLServer -AllVersions -Force
+    Uninstall-Module -Name SQLServer -AllVersions -Force -ErrorAction SilentlyContinue+
     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
     
     Write-Host "Installing $($sqlModuleName.Name) module..."    
