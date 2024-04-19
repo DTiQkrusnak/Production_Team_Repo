@@ -7,16 +7,28 @@ Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
 #### Variables
 $PShellVer = $PSVersionTable.PSVersion.Major
 $indexControllsObject = New-Object System.Collections.Generic.List[PSCustomObject]
+$sqlModuleName = Get-Module -Name "SQLServer" -ErrorAction SilentlyContinue
+$sqlModuleVersion = "22.2.0"
+
+### install module
+if ($sqlModuleName.Version -ne $sqlModuleVersion) {
+    Write-Host "Installing $($sqlModuleName.Name) module..."
+    Register-PSRepository -Default
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+    Install-Module -Name SQLServer -AllowClobber
+    Import-Module -Name SQLServer
+} else {
+    Write-Host "Module in correct version, nothing to do - skipping installation"
+}
 
 ### functions
 function breezeGetPVMVersion {
     Write-Host "Checking PVM version"
     $pvmPath = "C:\Program Files (x86)\EZUniverse\360iQPVMController\360iQPVMController.exe"
     if (Test-Path $pvmPath) {
-
         $getversion = Get-Item $pvmPath -ErrorAction SilentlyContinue
         $script:itemVersion = ($getversion).VersionInfo | Select-Object -Property  InternalName, FileVersion
-        Write-Host "    -> PVM ver: $($itemVersion.FileVersion)"        
+        Write-Host "    -> PVM ver: $($itemVersion.FileVersion)"     
     }
     else {
         Write-Host "    -> PVM not found"
