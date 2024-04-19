@@ -1,20 +1,39 @@
-$scriptVer = "1.0"
+$scriptVer = "1.2"
 $scriptName = "pvm_showControlsFix"
 $scriptDescr = "insert ShowControls depending on json configuration"
 Write-Output("SCRIPT DESCRIPTION: $scriptName v.$scriptVer")
 Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
+
+<#
+    .VERSION_1.2
+    - fixed database configuration check, now it will properly detect that configuration in db is absent
+    - new approach on reinstaling sqlserver module
+    
+    .VERSION_1.1
+    - added import SQLserver module to update legacy systems, related with "-connectionstring" param not available
+    
+    .VERSION_1.0
+    - initial release
+#>
 
 #### Variables
 $PShellVer = $PSVersionTable.PSVersion.Major
 $indexControllsObject = New-Object System.Collections.Generic.List[PSCustomObject]
 $sqlModuleName = Get-Module -Name "SQLServer" -ErrorAction SilentlyContinue
 $sqlModuleVersion = "22.2.0"
+$getPSGalleryRepo = Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue
 
 ### install module
-if ($sqlModuleName.Version -ne $sqlModuleVersion) {
-    Write-Host "Installing $($sqlModuleName.Name) module..."
+if (!$getPSGalleryRepo) {
+    Write-Host "Registering PSGallery repo..."
     Register-PSRepository -Default
+}
+
+if ($sqlModuleName.Version -ne $sqlModuleVersion) {
+    Uninstall-Module -Name SQLServer -AllVersions -Force
     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+    
+    Write-Host "Installing $($sqlModuleName.Name) module..."    
     Install-Module -Name SQLServer -AllowClobber
     Import-Module -Name SQLServer
 } else {
@@ -47,7 +66,7 @@ function getPVMConfigurationDB {
 "@
     Write-Host "Getting PVM configuration from database"
     $PVMJSON = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $queryGetPVMJSON -ErrorAction SilentlyContinue -MaxCharLength '100000' -QueryTimeout '120').Configuration
-    if ($PVMJSON.Length -eq "0") {
+    if ($PVMJSON.Length -eq 0) {
         Write-Host "    -> configuration or table not found"
         exit 0
     }
