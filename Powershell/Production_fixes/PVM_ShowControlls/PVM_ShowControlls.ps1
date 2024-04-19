@@ -7,7 +7,7 @@ Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
 <#
     .VERSION_1.3
     - added TLS 1.2 protocol so the SQLServer module can be downloaded
-
+    
     .VERSION_1.2
     - fixed database configuration check, now it will properly detect that configuration in db is absent
     - new approach on reinstaling sqlserver module
@@ -34,7 +34,7 @@ if (!$getPSGalleryRepo) {
 }
 
 if ($sqlModuleName.Version -ne $sqlModuleVersion) {
-    Uninstall-Module -Name SQLServer -AllVersions -Force -ErrorAction SilentlyContinue+
+    Uninstall-Module -Name SQLServer -AllVersions -Force -ErrorAction SilentlyContinue
     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
     
     Write-Host "Installing $($sqlModuleName.Name) module..."    
