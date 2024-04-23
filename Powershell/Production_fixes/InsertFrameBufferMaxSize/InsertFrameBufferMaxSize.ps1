@@ -1,15 +1,17 @@
-<#
-Exit code dictonary:
-	exit 10 - sql EZ360 instance not present
-	exit 666 - powershel v.5 is not installed
-	...
-#>
-
-$scriptVer = "1.0"
+$scriptVer = "1.1"
 $scriptName = "InsertFrameBufferMaxSize"
 $scriptDescr = "will set frameBufferMaxSize to 800k for each camera"
 Write-Output("SCRIPT DESCRIPTION: $scriptName v.$scriptVer")
 Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
+
+<#
+
+    .VERSION_1.1
+    - stop EZVideoServer to reload configuration
+    
+    .VERSION_1.0
+    - initial release
+#>
 
 # Variables
 $PShellVer = $PSVersionTable.PSVersion.Major
@@ -43,6 +45,16 @@ VALUES([SOURCE].ChannelStreamID, [SOURCE].KeyPath, [SOURCE].[Value], [SOURCE].Cr
     }    
 }
 
+function StopMandatoryService {
+    param (
+        $servicename
+    )
+    $serviceData = Get-Service -DisplayName $serviceName
+    Write-Host "Stopping service : $($serviceData.DisplayName)"
+    Stop-Service -InputObject $serviceData -ErrorAction SilentlyContinue
+    Write-Host "    -> Stopped"
+}
+
 function executeScript {
     param(
         [int]$PShellVer
@@ -57,7 +69,8 @@ function executeScript {
         }
 
         setBufferMaxSizeDB
-
+        StopMandatoryService 'EZSystemWatcher'
+        StopMandatoryService 'EZVideoServer'
     }
     else {
         Write-Output("PowerShell.v.5 is not installed - skipping script ")
