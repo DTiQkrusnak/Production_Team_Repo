@@ -5,7 +5,6 @@ Write-Output("SCRIPT DESCRIPTION: $scriptName v.$scriptVer")
 Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
 
 <#
-
     .VERSION_1.1
     - stop EZVideoServer to reload configuration
     
