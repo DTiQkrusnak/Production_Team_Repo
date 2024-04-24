@@ -105,7 +105,7 @@ function executeScript {
         EnableWindowsTime
         setNTPservers
 
-        Stop-Service -Name 'EZSystemWatcher' -ErrorAction SilentlyContinue
+        Stop-Service -Name 'EZSystemWatcher' -Force -ErrorAction SilentlyContinue
         Stop-Service -Name 'EZScheduler' -ErrorAction SilentlyContinue
 
 
