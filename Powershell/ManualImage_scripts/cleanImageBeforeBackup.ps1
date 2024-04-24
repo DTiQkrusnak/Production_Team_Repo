@@ -1,7 +1,7 @@
 $onstartupscriptsPath = "C:\ProgramData\DTiQ\onstartupscripts\"
 $getonstartupscriptsLogs = Get-ChildItem "$onstartupscriptsPath\logs\"
 $amIadmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-$getModelinfo = Get-CimInstance -ClassName Win32_ComputerSystem
+$getModelinfo = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
 
 # TODO: OnstartupScriptsCleanup :  check if file exists if exists then remove
 # TODO: DefineControllerType :  check if key and value already exists, swap (force) and\or notify that it has been changed
