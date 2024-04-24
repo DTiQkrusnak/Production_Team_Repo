@@ -31,11 +31,11 @@ $getPSGalleryRepo = Get-PSRepository -Name PSGallery -ErrorAction SilentlyContin
 if (!$getPSGalleryRepo) {
     Write-Host "Registering PSGallery repo..."
     Register-PSRepository -Default
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 }
 
 if ($sqlModuleName.Version -ne $sqlModuleVersion) {
     Uninstall-Module -Name SQLServer -AllVersions -Force -ErrorAction SilentlyContinue
-    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
     
     Write-Host "Installing $($sqlModuleName.Name) module..."    
     Install-Module -Name SQLServer -AllowClobber
@@ -69,7 +69,7 @@ function getPVMConfigurationDB {
       WHERE ServiceID = 290
 "@
     Write-Host "Getting PVM configuration from database"
-    $PVMJSON = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $queryGetPVMJSON -ErrorAction SilentlyContinue -MaxCharLength '100000' -QueryTimeout '120').Configuration
+    $PVMJSON = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $queryGetPVMJSON -ErrorAction SilentlyContinue -MaxCharLength 100000 -QueryTimeout 120).Configuration
     if ($PVMJSON.Length -eq 0) {
         Write-Host "    -> configuration or table not found"
         exit 0
