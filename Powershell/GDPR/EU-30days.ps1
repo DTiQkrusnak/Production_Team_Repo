@@ -8,19 +8,23 @@ $script:RemoveDaysLessThan = 30
 $hotfixesLegacy = [FileDownloadInformation]@{
     Name = 'hotfix_90.sql'
     Link = 'https://files-us-ps2.go360iq.com/_Files/Software/Hotfix/0090/patch.sql'
+    Hash = '02F8EAB9FCC5095C9B84A209C9E40FAB4D5D66CD51630FCA7D72B2599BA6B31E'
 }, [FileDownloadInformation]@{
     Name = 'hotfix_91.sql'
     Link = 'https://files-us-ps2.go360iq.com/_Files/Software/Hotfix/0091/patch.sql'
+    Hash = '47A977000453151669D38A8990AB1AD55C07CF8EBE1AB6DD079D8F975932886F'
 }
 
 $hotfixesVDMS = [FileDownloadInformation]@{
     Name = 'vdms_hotfix.sql'
     Link = 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/VDMS_GDPR/vdms_gdpr.sql'
+    Hash = '6A36961A08A7DCE60C79792A0B3AAC29CA90607C2E9621B14A486E8C995ADD6F'
 }
 
 $flirFiles = [FileDownloadInformation]@{
     Name = 'flir-1.7.0.9.zip'
     Link = 'https://s3.amazonaws.com/files-us-ps2.go360iq.com/_Files/Software/FLIR/flir-1.7.0.9.zip'
+    Hash = '4EB6B5B32FF3A1685DE137592A595F1E77F5D9034913DD9D259234AB9605F0D8'
 }
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -28,9 +32,17 @@ $flirFiles = [FileDownloadInformation]@{
 function DownloadAndVerify([FileDownloadInformation] $fileInfo) {
     Invoke-WebRequest -Uri $fileInfo.Link -OutFile $fileInfo.Name -ErrorAction Continue
     if (Test-Path $fileInfo.Name) {
-        $fileInfo.Success = $true
-        Write-Output("$($fileInfo.Name) downloaded")
+        $downloadHash = Get-FileHash -Path $fileinfo.Name -Algorithm SHA256
+        if ($downloadHash -eq $fileInfo.Hash) {
+            $fileInfo.Success = $true
+            Write-Output("$($fileInfo.Name) downloaded")
+        }
+        Write-Output("$($fileInfo.Name) hash is not matching")
+        Write-Output("Download: $($downloadHash)")
+        Write-Output("Expected: $($fileInfo.Hash)")
+        return
     }
+    Write-Output("Cannot download: $($fileInfo.Name)")
 }
 
 function ExecuteSql([FileDownloadInformation] $fileinfo, [string] $connectionString) {
@@ -47,6 +59,7 @@ function ExecuteSql([FileDownloadInformation] $fileinfo, [string] $connectionStr
 class FileDownloadInformation {
     [ValidateNotNullOrEmpty()][string] $Name
     [ValidateNotNullOrEmpty()][string] $Link
+    [ValidateNotNullOrEmpty()][string] $Hash
     [boolean] $Success = $false
 }
 
