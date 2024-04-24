@@ -106,7 +106,7 @@ function executeScript {
         setNTPservers
 
         Stop-Service -Name 'EZSystemWatcher' -Force -ErrorAction SilentlyContinue
-        Stop-Service -Name 'EZScheduler' -ErrorAction SilentlyContinue
+        Stop-Service -Name 'EZScheduler' -Force -ErrorAction SilentlyContinue
 
 
     }
