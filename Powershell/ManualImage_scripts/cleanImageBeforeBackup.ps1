@@ -77,7 +77,6 @@ function DefineControllerType {
     Write-Host " Defining controller type"
 
     $VDMSliteModels = @(
-        "Virtual Machine",
         "Virtual Machine"
     )
 
