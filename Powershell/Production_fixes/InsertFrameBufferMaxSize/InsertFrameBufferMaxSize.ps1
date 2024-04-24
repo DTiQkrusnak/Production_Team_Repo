@@ -36,7 +36,7 @@ VALUES([SOURCE].ChannelStreamID, [SOURCE].KeyPath, [SOURCE].[Value], [SOURCE].Cr
 
     try {
         Write-Host "Inovoking sql command:"
-        Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $setbufforsQuery -ErrorAction SilentlyContinue -MaxCharLength '100000' -QueryTimeout '120'    
+        Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $setbufforsQuery -ErrorAction SilentlyContinue -MaxCharLength 100000 -QueryTimeout 120    
         Write-Host "    -> sqlcmd finished succesfully"
     }
     catch {
