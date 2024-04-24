@@ -46,11 +46,10 @@ VALUES([SOURCE].ChannelStreamID, [SOURCE].KeyPath, [SOURCE].[Value], [SOURCE].Cr
 
 function StopMandatoryService {
     param (
-        $servicename
+        $serviceName
     )
-    $serviceData = Get-Service -DisplayName $serviceName
-    Write-Host "Stopping service : $($serviceData.DisplayName)"
-    Stop-Service -InputObject $serviceData -ErrorAction SilentlyContinue
+    Write-Host "Stopping service : $($serviceName)"
+    Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
     Write-Host "    -> Stopped"
 }
 
