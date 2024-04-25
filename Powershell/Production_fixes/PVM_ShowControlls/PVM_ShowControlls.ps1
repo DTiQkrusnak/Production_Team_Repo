@@ -30,17 +30,25 @@ $getPSGalleryRepo = Get-PSRepository -Name PSGallery -ErrorAction SilentlyContin
 
 ### install module
 if (!$getPSGalleryRepo) {
-    Write-Host "Registering PSGallery repo..."
-    Register-PSRepository -Default
-    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+    try {
+        Write-Host "Registering PSGallery repo..."
+        Register-PSRepository -Default
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+    } catch {
+        Write-Host "Cannot Add/Trust PSGallery"
+    }
 }
 
 if ($sqlModuleName.Version -lt $sqlModuleVersion) {
-    Uninstall-Module -Name SQLServer -AllVersions -Force -ErrorAction SilentlyContinue
-    
-    Write-Host "Installing $($sqlModuleName.Name) module..."    
-    Install-Module -Name SQLServer -AllowClobber -Confirm:$false -Force
-    Import-Module -Name SQLServer -ErrorAction SilentlyContinue
+    try {
+        Uninstall-Module -Name SQLServer -AllVersions -Force -ErrorAction SilentlyContinue
+        
+        Write-Host "Installing $($sqlModuleName.Name) module..."    
+        Install-Module -Name SQLServer -AllowClobber -Confirm:$false -Force -ErrorAction Stop
+        Import-Module -Name SQLServer -ErrorAction SilentlyContinue
+    } catch {
+        Write-Host "Newest SqlServer module cannot be installed/loaded"
+    }
 } else {
     Write-Host "Module in correct version, nothing to do - skipping installation"
 }
