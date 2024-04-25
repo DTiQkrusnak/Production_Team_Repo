@@ -23,6 +23,7 @@ Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $PShellVer = $PSVersionTable.PSVersion.Major
 $indexControllsObject = New-Object System.Collections.Generic.List[PSCustomObject]
+Import-Module "SQLServer" -Force -ErrorAction SilentlyContinue
 $sqlModuleName = Get-Module -Name "SQLServer" -ErrorAction SilentlyContinue
 $sqlModuleVersion = "22.2.0"
 $getPSGalleryRepo = Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue
@@ -34,12 +35,12 @@ if (!$getPSGalleryRepo) {
     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 }
 
-if ($sqlModuleName.Version -ne $sqlModuleVersion) {
+if ($sqlModuleName.Version -lt $sqlModuleVersion) {
     Uninstall-Module -Name SQLServer -AllVersions -Force -ErrorAction SilentlyContinue
     
     Write-Host "Installing $($sqlModuleName.Name) module..."    
-    Install-Module -Name SQLServer -AllowClobber
-    Import-Module -Name SQLServer
+    Install-Module -Name SQLServer -AllowClobber -Confirm:$false -Force
+    Import-Module -Name SQLServer -ErrorAction SilentlyContinue
 } else {
     Write-Host "Module in correct version, nothing to do - skipping installation"
 }
@@ -65,8 +66,8 @@ function getPVMConfigurationDB {
     
     $queryGetPVMJSON = @"
     SELECT Configuration
-      FROM [EZ360Controllers].[Config].[ServiceSections]
-      WHERE ServiceID = 290
+    FROM [EZ360Controllers].[Config].[ServiceSections]
+    WHERE ServiceID = 290
 "@
     Write-Host "Getting PVM configuration from database"
     $PVMJSON = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $queryGetPVMJSON -ErrorAction SilentlyContinue -MaxCharLength 100000 -QueryTimeout 120).Configuration
