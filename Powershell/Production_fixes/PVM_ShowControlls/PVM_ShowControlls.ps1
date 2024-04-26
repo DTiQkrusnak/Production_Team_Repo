@@ -41,6 +41,7 @@ if (!$getPSGalleryRepo) {
 
 if ($sqlModuleName.Version -lt $sqlModuleVersion) {
     try {
+        Remove-Module -Name SQLServer -ErrorAction SilentlyContinue
         Uninstall-Module -Name SQLServer -AllVersions -Force -ErrorAction SilentlyContinue
         
         Write-Host "Installing $($sqlModuleName.Name) module..."    
