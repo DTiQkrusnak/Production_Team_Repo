@@ -32,14 +32,8 @@ $hotfixesVDMS = [FileDownloadInformation]@{
 
 $flirFiles = [FileDownloadInformation]@{
     Name = 'flir-1.7.0.9.zip'
-    Link = 'https://files-us-ps2.go360iq.com/_Files/Software/FLIR/flir-1.7.0.9.zip'
+    Link = 'https://s3.amazonaws.com/files-us-ps2.go360iq.com/_Files/Software/FLIR/flir-1.7.0.9.zip'
     SHA256Hash = '4EB6B5B32FF3A1685DE137592A595F1E77F5D9034913DD9D259234AB9605F0D8'
-}
-
-$scriptFileForWindowsScheduler = [FileDownloadInformation]@{
-    Name = 'EU-30days-scheduler.ps1'
-    Link = 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/VDMS_GDPR/EU-30days-scheduler.ps1'
-    SHA256Hash = 'B48FF0E55E50EAABD56523ED2C3463D84AD3838F3E80A78544460624BCE280DC'
 }
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -301,28 +295,6 @@ function ExecuteFlir {
     }
 }
 
-function ScheduleGdprTask {
-    try {
-        if (Get-ScheduledTask -TaskName 'EU-30days' -ErrorAction SilentlyContinue) {
-            Write-Output('[+] Task already scheduled')
-            return
-        }
-        Push-Location $script:GdprDownloadPath
-        Invoke-DownloadAndVerify -DownloadPath $script:GdprDownloadPath -FileInfo $scriptFileForWindowsScheduler
-        $actions = New-ScheduledTaskAction -Execute 'powershell' -Argument ("-File $(Join-Path -Path $scriptFileForWindowsScheduler.SavedAtPath -ChildPath $scriptFileForWindowsScheduler.Name)")
-        $trigger = New-ScheduledTaskTrigger -Daily -At '4:30 AM'
-        $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
-        $settings = New-ScheduledTaskSettingsSet -RunOnlyIfNetworkAvailable -WakeToRun
-        $task = New-ScheduledTask -Action $actions -Principal $principal -Trigger $trigger -Settings $settings
-        Register-ScheduledTask -TaskName 'EU-30days' -InputObject $task
-        Write-Output('[+] Scheduled GDPR task')
-    } catch {
-        throw $_
-    } finally {
-        Pop-Location
-    }
-}
-
 function mainExecution() {
     $dateWithOffset = Get-DateWithParameterOffset($script:RemoveDaysLessThan)
     $dvrType = Get-DvrType
@@ -359,7 +331,6 @@ function mainExecution() {
     CleanDrivesFromFootage $dateWithOffset
     ExecuteFlir -ErrorAction SilentlyContinue
     Pop-Location
-    ScheduleGdprTask
 }
 
 try {
