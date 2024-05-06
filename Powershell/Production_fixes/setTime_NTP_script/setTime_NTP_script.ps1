@@ -16,6 +16,15 @@ $PShellVer = $PSVersionTable.PSVersion.Major
 $controllerModel = (Get-ItemProperty 'registry::HKEY_LOCAL_MACHINE\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -Name 'ControllerModel').ControllerModel
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+function EnableWindowsTime {
+    $serviceInfoWT = Get-Service -DisplayName 'Windows Time'
+    
+    if ($serviceInfoWT.StartType -eq 'Disabled') {
+        Write-Host "Enabling service : $($serviceInfoWT.DisplayName)"
+        Set-Service -InputObject $serviceInfoWT -StartupType Manual
+    }
+}
+
 function RemoveTimeSync_VDMS {
     $connectionStringEz360 = 'Server=.\EZ360;Database=EZ360Objects;User Id=EZ360System;Password=EZ360System;TrustServerCertificate=True'
     $modifyEnabledQuery = @"
@@ -93,10 +102,11 @@ function executeScript {
             exit 0
         }
 
+        EnableWindowsTime
         setNTPservers
 
-        Stop-Service -name 'EZSystemWatcher' -ErrorAction SilentlyContinue
-        Stop-Service -name 'EZScheduler' -ErrorAction SilentlyContinue
+        Stop-Service -Name 'EZSystemWatcher' -Force -ErrorAction SilentlyContinue
+        Stop-Service -Name 'EZScheduler' -Force -ErrorAction SilentlyContinue
 
 
     }
