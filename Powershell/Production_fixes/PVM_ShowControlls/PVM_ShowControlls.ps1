@@ -1,22 +1,67 @@
-$scriptVer = "1.0"
+$scriptVer = "1.3"
 $scriptName = "pvm_showControlsFix"
 $scriptDescr = "insert ShowControls depending on json configuration"
 Write-Output("SCRIPT DESCRIPTION: $scriptName v.$scriptVer")
 Write-Output("SCRIPT DESCRIPTION: $scriptDescr")
 
+<#
+    .VERSION_1.3
+    - added TLS 1.2 protocol so the SQLServer module can be downloaded
+    
+    .VERSION_1.2
+    - fixed database configuration check, now it will properly detect that configuration in db is absent
+    - new approach on reinstaling sqlserver module
+    
+    .VERSION_1.1
+    - added import SQLserver module to update legacy systems, related with "-connectionstring" param not available
+    
+    .VERSION_1.0
+    - initial release
+#>
+
 #### Variables
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $PShellVer = $PSVersionTable.PSVersion.Major
 $indexControllsObject = New-Object System.Collections.Generic.List[PSCustomObject]
+Import-Module "SQLServer" -Force -ErrorAction SilentlyContinue
+$sqlModuleName = Get-Module -Name "SQLServer" -ErrorAction SilentlyContinue
+$sqlModuleVersion = "22.2.0"
+$getPSGalleryRepo = Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue
+
+### install module
+if (!$getPSGalleryRepo) {
+    try {
+        Write-Host "Registering PSGallery repo..."
+        Register-PSRepository -Default
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+    } catch {
+        Write-Host "Cannot Add/Trust PSGallery"
+    }
+}
+
+if ($sqlModuleName.Version -lt $sqlModuleVersion) {
+    try {
+        Remove-Module -Name SQLServer -ErrorAction SilentlyContinue
+        Uninstall-Module -Name SQLServer -AllVersions -Force -ErrorAction SilentlyContinue
+        
+        Write-Host "Installing $($sqlModuleName.Name) module..."    
+        Install-Module -Name SQLServer -AllowClobber -Confirm:$false -Force -ErrorAction Stop
+        Import-Module -Name SQLServer -ErrorAction SilentlyContinue
+    } catch {
+        Write-Host "Newest SqlServer module cannot be installed/loaded"
+    }
+} else {
+    Write-Host "Module in correct version, nothing to do - skipping installation"
+}
 
 ### functions
 function breezeGetPVMVersion {
     Write-Host "Checking PVM version"
     $pvmPath = "C:\Program Files (x86)\EZUniverse\360iQPVMController\360iQPVMController.exe"
     if (Test-Path $pvmPath) {
-
         $getversion = Get-Item $pvmPath -ErrorAction SilentlyContinue
         $script:itemVersion = ($getversion).VersionInfo | Select-Object -Property  InternalName, FileVersion
-        Write-Host "    -> PVM ver: $($itemVersion.FileVersion)"        
+        Write-Host "    -> PVM ver: $($itemVersion.FileVersion)"     
     }
     else {
         Write-Host "    -> PVM not found"
@@ -30,12 +75,12 @@ function getPVMConfigurationDB {
     
     $queryGetPVMJSON = @"
     SELECT Configuration
-      FROM [EZ360Controllers].[Config].[ServiceSections]
-      WHERE ServiceID = 290
+    FROM [EZ360Controllers].[Config].[ServiceSections]
+    WHERE ServiceID = 290
 "@
     Write-Host "Getting PVM configuration from database"
-    $PVMJSON = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $queryGetPVMJSON -ErrorAction SilentlyContinue -MaxCharLength '100000' -QueryTimeout '120').Configuration
-    if ($PVMJSON.Length -eq "0") {
+    $PVMJSON = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $queryGetPVMJSON -ErrorAction SilentlyContinue -MaxCharLength 100000 -QueryTimeout 120).Configuration
+    if ($PVMJSON.Length -eq 0) {
         Write-Host "    -> configuration or table not found"
         exit 0
     }
