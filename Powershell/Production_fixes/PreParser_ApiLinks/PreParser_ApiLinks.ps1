@@ -34,15 +34,15 @@ function Invoke-Breezev2 {
     ),
     [PreParserPropertyInformation]::new(
         "DataWebservice",
-        "https://data-us-ps1.go360iq.com/PS1/EZ360DataInterface/Api/Data1"
+        "https://data-us-ps1.go360iq.com/PS1/EZ360DataInterface/Api/Data"
     ),
     [PreParserPropertyInformation]::new(
         "ReportWebservice",
-        "https://data-us-ps1.go360iq.com/PS1/EZ360DataInterface/Api/Reports1"
+        "https://data-us-ps1.go360iq.com/PS1/EZ360DataInterface/Api/Reports"
     ),
     [PreParserPropertyInformation]::new(
         "VersionWebService",
-        "https://data-us-ps1.go360iq.com/PS1/EZ360DataInterface/Api/LocationSoftware/SetServiceVersions1"
+        "https://data-us-ps1.go360iq.com/PS1/EZ360DataInterface/Api/LocationSoftware/SetServiceVersions"
     )
     
 
@@ -92,7 +92,46 @@ function Invoke-Breezev2 {
             }         
         } 
         #$faultyLinksObjectsJson = $faultyLinksObjects | ConvertTo-Json
+
         return $faultyLinksObjects
+    }
+    
+    function FixFaultyLink {
+        param (
+            $preparserConfigurationJson,
+            $propertiesVar,
+            $faultyLinks
+        )
+    
+        
+        if ($null -eq $faultyLinks) {
+            Write-Host "Nothing to do - links are proper"
+            exit 0
+        }
+        else {
+            foreach ($faultyProperty in $faultyLinks) {
+                Write-Host "Fixing : $($faultyProperty.propertyName)"
+                $preparserConfigurationJson.($faultyProperty.propertyName) = ($propertiesVar | Where-Object { $_.propertyName -eq $($faultyProperty.PropertyName)}).propertyLink
+                Write-Host "    -> Link replaced"
+            }
+            Write-Host "Saving File : $preparserConfigPath"
+            $preparserConfigurationJson| ConvertTo-Json -Depth 32 | Set-Content $preparserConfigPath
+        }
+    }
+
+    function RestartMandatoryService {
+        param (
+            $servicename
+        )
+        $watcherCheck = Get-Service -DisplayName "EZSystemWatcher" -ErrorAction SilentlyContinue
+
+        if ($watcherCheck.Status -eq 'Running') {
+            Stop-Service -InputObject $watcherCheck -ErrorAction SilentlyContinue
+        }
+        
+        $serviceData = Get-Service -DisplayName $serviceName
+        Write-Host "Restarting service : $($serviceData.DisplayName)"
+        Restart-Service -InputObject $serviceData -ErrorAction SilentlyContinue
     }
     
     ## === END OF FUNCTIONS SPACE ===
@@ -162,6 +201,8 @@ function Invoke-Breezev2 {
     if ($null -eq $faultyLinks) {
         Write-Host "Nothing to do"
     } else {
+        #FixFaultyLink $preparserConfigurationJson $propertiesVar $faultyLinks
+        #RestartMandatoryService 'EZ360PreParser'
         getIdToken
         sendRestData
     }
