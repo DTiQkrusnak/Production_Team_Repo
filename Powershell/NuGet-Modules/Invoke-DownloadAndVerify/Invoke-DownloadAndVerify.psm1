@@ -8,9 +8,9 @@ class FileDownloadInformation {
 
 function New-FileDownloadInformation {
     param (
-        [ValidateNotNullOrEmpty()][string] $Name,
-        [ValidateNotNullOrEmpty()][string] $Link,
-        [ValidateNotNullOrEmpty()][string] $SHA256Hash
+        [Parameter(Mandatory = $True)][ValidateNotNullOrEmpty()][string] $Name,
+        [Parameter(Mandatory = $True)][ValidateNotNullOrEmpty()][string] $Link,
+        [Parameter(Mandatory = $True)][ValidateNotNullOrEmpty()][string] $SHA256Hash
     )
     $tempFileDownloadInformationObject = [FileDownloadInformation]::new()
     $tempFileDownloadInformationObject.Name = $Name
@@ -70,4 +70,5 @@ function Invoke-DownloadAndVerify {
     }
 }
 
-Export-ModuleMember -Function 'New-FileDownloadInformation', 'Invoke-DownloadAndVerify'
+Export-ModuleMember -Function 'New-FileDownloadInformation'
+Export-ModuleMember -Function 'Invoke-DownloadAndVerify'
