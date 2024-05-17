@@ -30,14 +30,16 @@ function Invoke-DownloadAndVerify {
         [ValidateNotNullOrEmpty()]
         [FileDownloadInformation] $FileInfo,
 
-        [Int32] $Timeout = 30
+        [Int32] $Timeout = 30,
+
+        [boolean] $SkipHashVerification = $False
     )
 
-    function Test-ForExistingFile([FileDownloadInformation] $FileInfo, [string] $DownloadPath ) {
+    function Test-ForExistingFile([FileDownloadInformation] $FileInfo, [string] $DownloadPath, [boolean] $SkipHashVerification) {
         if (Test-Path -Path $FileInfo.Name -PathType Leaf) {
             $FileInfo.SavedAtPath = $DownloadPath
             $downloadHash = Get-FileHash -Path $FileInfo.Name -Algorithm SHA256
-            if ($downloadHash.Hash -eq $FileInfo.SHA256Hash) {
+            if (($downloadHash.Hash -eq $FileInfo.SHA256Hash) -or $SkipHashVerification) {
                 $FileInfo.Success = $true
                 return $true
             } else {
@@ -51,11 +53,11 @@ function Invoke-DownloadAndVerify {
 
     try {
         Push-Location -LiteralPath $DownloadPath
-        if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath) {
+        if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath -SkipHashVerification $SkipHashVerification) {
             return
         } else {
             Invoke-WebRequest -Uri $FileInfo.Link -OutFile $FileInfo.Name -TimeoutSec $Timeout -ErrorAction Stop
-            if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath) {
+            if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath -SkipHashVerification $SkipHashVerification) {
                 return
             } else {
                 Write-Error("Cannot download $FileInfo")

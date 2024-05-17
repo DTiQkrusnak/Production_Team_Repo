@@ -32,14 +32,16 @@ function Invoke-DownloadAndVerify {
         [ValidateNotNullOrEmpty()]
         [FileDownloadInformation] $FileInfo,
 
-        [Int32] $Timeout = 30
+        [Int32] $Timeout = 30,
+
+        [boolean] $SkipHashVerification = $False
     )
 
-    function Test-ForExistingFile([FileDownloadInformation] $FileInfo, [string] $DownloadPath ) {
+    function Test-ForExistingFile([FileDownloadInformation] $FileInfo, [string] $DownloadPath, [boolean] $SkipHashVerification) {
         if (Test-Path -Path $FileInfo.Name -PathType Leaf) {
             $FileInfo.SavedAtPath = $DownloadPath
             $downloadHash = Get-FileHash -Path $FileInfo.Name -Algorithm SHA256
-            if ($downloadHash.Hash -eq $FileInfo.SHA256Hash) {
+            if (($downloadHash.Hash -eq $FileInfo.SHA256Hash) -or $SkipHashVerification) {
                 $FileInfo.Success = $true
                 return $true
             } else {
@@ -53,11 +55,11 @@ function Invoke-DownloadAndVerify {
 
     try {
         Push-Location -LiteralPath $DownloadPath
-        if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath) {
+        if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath -SkipHashVerification $SkipHashVerification) {
             return
         } else {
             Invoke-WebRequest -Uri $FileInfo.Link -OutFile $FileInfo.Name -TimeoutSec $Timeout -ErrorAction Stop
-            if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath) {
+            if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath -SkipHashVerification $SkipHashVerification) {
                 return
             } else {
                 Write-Error("Cannot download $FileInfo")
@@ -78,10 +80,6 @@ function IsRepositoryRegistered([string] $repo_name) {
     }
 }
 
-Register-PSRepository -Default -ErrorAction SilentlyContinue
-if ($(Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue).Trusted -ne $True) {
-    Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
-}
 
 [FileDownloadInformation] $nuget_file = New-FileDownloadInformation -Name 'nuget.exe' `
     -Link 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/Nuget/nuget.exe' `
@@ -89,14 +87,32 @@ if ($(Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue).Trusted 
 
 [string] $repo_name = 'ShellGet'
 [string] $repo_source = 'https://shellget.go360iq.com/nuget'
-[string] $modules_path = 'C:\ProgramData\DTiQ\Powershell\ShellGet\Modules'
+[string] $dtiq_modules_path = 'C:\ProgramData\DTiQ\Powershell\ShellGet\Modules\'
 
 try {
-    if (!(Test-Path -LiteralPath $modules_path -PathType Container)) {
-        New-Item -ItemType Directory -Path $modules_path -Force | Out-Null
+    if (!(Get-PackageProvider -Name 'NuGet' -ListAvailable -ErrorAction SilentlyContinue)) {
+        Install-PackageProvider -Name 'NuGet' -MinimumVersion 2.8.5.201 -Force -ForceBootstrap
     }
-    Invoke-DownloadAndVerify -FileInfo $nuget_file -DownloadPath $modules_path
-    Push-Location -LiteralPath $modules_path
+
+    Register-PSRepository -Default -ErrorAction SilentlyContinue
+    if ($(Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue).Trusted -ne $True) {
+        Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+    }
+
+    if (!(Test-Path -LiteralPath $dtiq_modules_path -PathType Container)) {
+        New-Item -ItemType Directory -Path $dtiq_modules_path -Force | Out-Null
+    }
+    Invoke-DownloadAndVerify -FileInfo $nuget_file -DownloadPath $dtiq_modules_path -SkipHashVerification $True
+    $env_path = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    if (!($env_path.Split(';') -contains $dtiq_modules_path)) {
+        [Environment]::SetEnvironmentVariable("Path", $env_path + ";" + $dtiq_modules_path, [EnvironmentVariableTarget]::Machine)
+    }
+
+    $ps_modules_path = [Environment]::GetEnvironmentVariable("PSModulePath", "Machine")
+    if (!($ps_modules_path.Split(';') -contains $dtiq_modules_path)) {
+        [Environment]::SetEnvironmentVariable("PSModulePath", $ps_modules_path + ";" + $dtiq_modules_path, [EnvironmentVariableTarget]::Machine)
+    }
+    Push-Location -LiteralPath $dtiq_modules_path
     ./nuget.exe update -self
     if (!(IsRepositoryRegistered($repo_name))) {
         ./nuget.exe sources add -name $repo_name -Source $repo_source | Out-Null
