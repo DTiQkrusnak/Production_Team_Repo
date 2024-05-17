@@ -24,3 +24,5 @@ function Expand-ArchiveWithFallback {
         }
     }
 }
+
+Export-ModuleMember -Function 'Expand-ArchiveWithFallback'

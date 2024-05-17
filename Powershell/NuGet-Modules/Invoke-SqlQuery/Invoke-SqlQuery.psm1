@@ -56,3 +56,5 @@ function Invoke-SqlQuery {
         }
     }
 }
+
+Export-ModuleMember -Function 'Invoke-SqlQuery'
