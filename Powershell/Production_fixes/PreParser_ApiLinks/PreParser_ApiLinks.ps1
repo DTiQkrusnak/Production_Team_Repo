@@ -67,7 +67,7 @@ function Invoke-Breezev2 {
             [string]$preparserConfigPath
         )
         
-        $getpreParserConfigurationJson = Get-Content -Path $preparserConfigPath | Out-String | ConvertFrom-Json
+        $getpreParserConfigurationJson = Get-Content -Path $preparserConfigPath -Raw | ConvertFrom-Json
         return $getPreParserConfigurationJson
     }
 
