@@ -1,11 +1,3 @@
-class FileDownloadInformation {
-    [ValidateNotNullOrEmpty()][string] $Name
-    [ValidateNotNullOrEmpty()][string] $Link
-    [ValidateNotNullOrEmpty()][string] $SHA256Hash
-    [boolean] $Success = $false
-    [string] $SavedAtPath = $null
-}
-
 function New-FileDownloadInformation {
     param (
         [Parameter(Mandatory = $True)][ValidateNotNullOrEmpty()][string] $Name,
@@ -34,7 +26,7 @@ function Invoke-DownloadAndVerify {
 
         [boolean] $SkipHashVerification = $False
     )
-
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     function Test-ForExistingFile([FileDownloadInformation] $FileInfo, [string] $DownloadPath, [boolean] $SkipHashVerification) {
         if (Test-Path -Path $FileInfo.Name -PathType Leaf) {
             $FileInfo.SavedAtPath = $DownloadPath
@@ -64,7 +56,7 @@ function Invoke-DownloadAndVerify {
             }
         }
     } catch {
-        throw $_
+        Write-Error($_)
     } finally {
         Pop-Location
     }
