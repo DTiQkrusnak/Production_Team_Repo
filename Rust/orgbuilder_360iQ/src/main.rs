@@ -69,12 +69,20 @@ fn main() {
         Err(error) => panic!("{:?}", error),
     };
 
+    let amount_left_after_processing: i64 = locations_in_target_organization.len() as i64 - id_ready_to_send_edit.len() as i64;
+    let will_be_emptied = if amount_left_after_processing < 1 && cmd.remove {
+        true
+    } else {
+        false
+    };
+
     let modification_response_body = utils::organization_modification::edit_organization(
         &client,
         target_organization,
         organization_prefix,
         &cmd.remove,
         id_ready_to_send_edit,
+        will_be_emptied
     );
 
     if cmd.verbose { println!("{}", modification_response_body)}
