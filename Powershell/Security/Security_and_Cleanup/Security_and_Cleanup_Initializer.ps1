@@ -1,0 +1,80 @@
+class FileDownloadInformation {
+    [ValidateNotNullOrEmpty()][string] $Name
+    [ValidateNotNullOrEmpty()][string] $Link
+    [ValidateNotNullOrEmpty()][string] $SHA256Hash
+    [boolean] $Success = $false
+    [string] $SavedAtPath = $null
+}
+function New-FileDownloadInformation {
+    param (
+        [Parameter(Mandatory = $True)][ValidateNotNullOrEmpty()][string] $Name,
+        [Parameter(Mandatory = $True)][ValidateNotNullOrEmpty()][string] $Link,
+        [Parameter(Mandatory = $True)][ValidateNotNullOrEmpty()][string] $SHA256Hash
+    )
+    $tempFileDownloadInformationObject = [FileDownloadInformation]::new()
+    $tempFileDownloadInformationObject.Name = $Name
+    $tempFileDownloadInformationObject.Link = $Link
+    $tempFileDownloadInformationObject.SHA256Hash = $SHA256Hash
+    return $tempFileDownloadInformationObject
+}
+
+function Invoke-DownloadAndVerify {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$True)]
+        [ValidateScript({Test-Path -Path $_ -PathType Container})]
+        [string] $DownloadPath,
+
+        [Parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        [FileDownloadInformation] $FileInfo,
+
+        [Int32] $Timeout = 30,
+
+        [boolean] $SkipHashVerification = $False
+    )
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    function Test-ForExistingFile([FileDownloadInformation] $FileInfo, [string] $DownloadPath, [boolean] $SkipHashVerification) {
+        if (Test-Path -Path $FileInfo.Name -PathType Leaf) {
+            $FileInfo.SavedAtPath = $DownloadPath
+            $downloadHash = Get-FileHash -Path $FileInfo.Name -Algorithm SHA256
+            if (($downloadHash.Hash -eq $FileInfo.SHA256Hash) -or $SkipHashVerification) {
+                $FileInfo.Success = $true
+                return $true
+            } else {
+                Write-Error("Hash mismatch for $($FileInfo.Name). Download: $($downloadHash.Hash), Expected: $($FileInfo.SHA256Hash)")
+                return $false
+            }
+        } else {
+            return $false
+        }
+    }
+
+    try {
+        Push-Location -LiteralPath $DownloadPath
+        if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath -SkipHashVerification $SkipHashVerification) {
+            return
+        } else {
+            Invoke-WebRequest -Uri $FileInfo.Link -OutFile $FileInfo.Name -TimeoutSec $Timeout -ErrorAction Stop
+            if (Test-ForExistingFile -FileInfo $FileInfo -DownloadPath $DownloadPath -SkipHashVerification $SkipHashVerification) {
+                return
+            } else {
+                Write-Error("Cannot download $FileInfo")
+            }
+        }
+    } catch {
+        Write-Error($_)
+    } finally {
+        Pop-Location
+    }
+}
+
+$Security_script_file = New-FileDownloadInformation `
+    -Name 'Security_and_Cleanup.ps1' `
+    -Link 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/SecurityScripts/Security_and_Cleanup.ps1' `
+    -SHA256Hash 'B306A7E27F713AFE4D66619C580B21066B93B098DD82E9923218220705F7CF15'
+
+New-Item -ItemType Directory -Path 'C:\DTIQ\Security_and_Cleanup\' -Force
+Invoke-DownloadAndVerify -DownloadPath 'C:\DTIQ\Security_and_Cleanup\' -FileInfo $Security_script_file
+
+Start-Process -FilePath 'cmd.exe' -ArgumentList '/c START /B powershell.exe -File C:\DTIQ\Security_and_Cleanup\Security_and_Cleanup.ps1 > C:\DTIQ\Security_and_Cleanup\log.txt' -WindowStyle Hidden
