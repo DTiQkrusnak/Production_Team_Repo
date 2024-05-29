@@ -13,15 +13,14 @@ $script:gatheredErrors = @()
 
 function Install-Packages() {
 	try {
-		Install-PackageProvider -Name 'NuGet' -MinimumVersion 2.8.5.201 -Confirm:$false -ErrorAction Stop
+		Install-PackageProvider -Name 'NuGet' -MinimumVersion 2.8.5.201 -Confirm:$false -Force -ForceBootstrap -ErrorAction Stop
+		Add-PowershellDefaultRepository
 		Install-Module -Name 'SqlServer' -Confirm:$false -Force -AllowClobber -ErrorAction Stop
 	} catch {
 		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
 		Write-Output("[-]  $($_.Exception.Message)")
 	}
 }
-
-
 
 class FileProperties {
 	[string]$name
@@ -729,7 +728,6 @@ function Push-ErrorLogs([string[]] $script:gatheredErrors) {
 }
 
 $startTime = Get-Date
-Add-PowershellDefaultRepository
 Install-Packages
 Get-DotNetFiles
 Disable-Windows11Upgrade
