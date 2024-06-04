@@ -13,15 +13,14 @@ $script:gatheredErrors = @()
 
 function Install-Packages() {
 	try {
-		Install-PackageProvider -Name 'NuGet' -MinimumVersion 2.8.5.201 -Confirm:$false -ErrorAction Stop
+		Install-PackageProvider -Name 'NuGet' -MinimumVersion 2.8.5.201 -Confirm:$false -Force -ForceBootstrap -ErrorAction Stop
+		Add-PowershellDefaultRepository
 		Install-Module -Name 'SqlServer' -Confirm:$false -Force -AllowClobber -ErrorAction Stop
 	} catch {
 		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
 		Write-Output("[-]  $($_.Exception.Message)")
 	}
 }
-
-
 
 class FileProperties {
 	[string]$name
@@ -728,8 +727,24 @@ function Push-ErrorLogs([string[]] $script:gatheredErrors) {
 	}
 }
 
+function Move-DotnetEnvVarPosition() {
+	$dotnet_32bit_path = "C:\Program Files (x86)\dotnet\"
+	$dotnet_64bit_path = "C:\Program Files\dotnet\"
+	$env_scope = "Machine"
+	$env_var_name = "Path"
+
+	$current_path_env_var = [Environment]::GetEnvironmentVariable($env_var_name, $env_scope)
+	$current_path_env_var = $current_path_env_var.Split(';')
+
+	if (($current_path_env_var -contains $dotnet_32bit_path) -and ($current_path_env_var -contains $dotnet_64bit_path)) {
+		$list_of_env_vars = [Environment]::GetEnvironmentVariable($env_var_name, $env_scope)
+		$list_of_env_vars = $list_of_env_vars.Replace(($dotnet_32bit_path + ';'), "")
+		$list_of_env_vars = $list_of_env_vars.Replace(($dotnet_64bit_path + ';'), ($dotnet_64bit_path + ';' + $dotnet_32bit_path + ';'))
+		[Environment]::SetEnvironmentVariable($env_var_name, $list_of_env_vars, $env_scope)
+	}
+}
+
 $startTime = Get-Date
-Add-PowershellDefaultRepository
 Install-Packages
 Get-DotNetFiles
 Disable-Windows11Upgrade
@@ -741,6 +756,7 @@ Set-FirewallRulePingAllow
 Uninstall-LegacyComponents
 Install-Wazuh
 Install-DotNet
+Move-DotnetEnvVarPosition
 Push-ErrorLogs($script:gatheredErrors)
 
 <# TODO :
