@@ -1,3 +1,10 @@
+class FileDownloadInformation {
+    [ValidateNotNullOrEmpty()][string] $Name
+    [ValidateNotNullOrEmpty()][string] $Link
+    [ValidateNotNullOrEmpty()][string] $SHA256Hash
+    [boolean] $Success = $false
+    [string] $SavedAtPath = $null
+}
 function New-FileDownloadInformation {
     param (
         [Parameter(Mandatory = $True)][ValidateNotNullOrEmpty()][string] $Name,
@@ -62,5 +69,12 @@ function Invoke-DownloadAndVerify {
     }
 }
 
-Export-ModuleMember -Function 'New-FileDownloadInformation'
-Export-ModuleMember -Function 'Invoke-DownloadAndVerify'
+$Security_script_file = New-FileDownloadInformation `
+    -Name 'Security_and_Cleanup.ps1' `
+    -Link 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/SecurityScripts/Security_and_Cleanup.ps1' `
+    -SHA256Hash 'B306A7E27F713AFE4D66619C580B21066B93B098DD82E9923218220705F7CF15'
+
+New-Item -ItemType Directory -Path 'C:\DTIQ\Security_and_Cleanup\' -Force
+Invoke-DownloadAndVerify -DownloadPath 'C:\DTIQ\Security_and_Cleanup\' -FileInfo $Security_script_file
+
+Start-Process -FilePath 'cmd.exe' -ArgumentList '/c START /B powershell.exe -File C:\DTIQ\Security_and_Cleanup\Security_and_Cleanup.ps1 > C:\DTIQ\Security_and_Cleanup\log.txt' -WindowStyle Hidden
