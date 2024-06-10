@@ -50,6 +50,47 @@ $dotnetVersionsToDownload = [FileProperties]::new(
 	"62412c45ba5ebf89b0ea2c3d9dcce3a7f05198d4db368f63956f7ae58b368baa059343a2de39d24e20ffe126145f31c72131914cb2793f002921a975e69c3bb4"
 )
 
+class RegistryEntry {
+	[ValidateNotNullOrEmpty()]
+	[Parameter(Mandatory = $True)]
+	[string] $Path
+
+	[ValidateNotNullOrEmpty()]
+	[Parameter(Mandatory = $True)]
+	[string] $KeyName
+
+	[ValidateNotNullOrEmpty()]
+	[Parameter(Mandatory = $True)]
+	[string] $Value
+
+	[ValidateSet('String', 'ExpandString', 'Binary', 'DWord', 'MultiString', 'Qword', 'Unknown')]
+	[Parameter(Mandatory = $True)]
+	[string] $PropertyType
+
+	RegistryEntry($Path, $KeyName, $Value, $PropertyType) {
+		$this.Path = $Path
+		$this.KeyName = $KeyName
+		$this.Value = $Value
+		$this.PropertyType = $PropertyType
+	}
+}
+
+function New-RegistryEntry {
+	param(
+		[RegistryEntry] $Entry
+	)
+
+	try {
+		if (!(Test-path $Entry.Path)) {
+			New-Item -Path $Entry.Path -Force | Out-Null
+		}
+		New-ItemProperty -Path $Entry.Path -Name $Entry.KeyName -Value $Entry.Value -PropertyType $Entry.PropertyType -Force | Out-Null
+	} catch {
+		Write-Error($_)
+	}
+}
+
+
 function Add-PowershellDefaultRepository() {
 	<#
 	.SYNOPSIS
@@ -109,30 +150,26 @@ function Disable-Windows11Upgrade() {
 	#>
 	Write-Output('[i] Block Win11 Upgrade')
 
-	$regPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+	$keys = @(
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', 'ProductVersion', 'Windows 10', 'String'),
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', 'TargetReleaseVersion', 1, 'Dword'),
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', 'TargetReleaseVersionInfo', '21H2', 'String')
+	)
 
-	try {
-		# ! TO REWORK > Invalid class win32_operatingsystem
-		$system = (Get-WMIObject win32_operatingsystem).Caption
-
-		if ($system -like "*Windows*10*") {
-			Write-Output('[i] blockWin11Upgrade')
-			if (!(Test-path $regPath)) {
-				New-Item -Path $regPath -Force
-			}
-
-			New-ItemProperty -Path $regPath -Name "ProductVersion" -value "Windows 10" -PropertyType String -Force | Out-Null
-			New-ItemProperty -Path $regPath -Name "TargetReleaseVersion" -value 1 -PropertyType DWord -Force | Out-Null
-			New-ItemProperty -Path $regpath -Name "TargetReleaseVersionInfo" -value "21H2" -PropertyType String -Force | Out-Null
-			Write-Output('[+] block Windows 11 completed')
-		}
-		else {
-			Write-Output("[-] function is executing fix only on Windows 10, your Windows : $system")
-		}
-	} catch {
-		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
-		Write-Output("[-]  $($_.Exception.Message)")
+	if ((Get-ComputerInfo -Property OsName).OsName -inotlike "*Windows*10*") {
+		Write-Output("[-] function is executing fix only on Windows 10")
+		return
 	}
+	Write-Output('[i] blockWin11Upgrade')
+	foreach ($key in $keys) {
+		try {
+			New-RegistryEntry -Entry $key
+		} catch {
+			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+			Write-Output("[-]  $($_.Exception.Message)")
+		}
+	}
+	Write-Output('[+] block Windows 11 completed')
 }
 
 function Disable-WindowsUpdateIfAteraNotPresent() {
@@ -255,61 +292,25 @@ function Disable-Obee() {
 	like 'Hi' and 'Get even more out of Windows' screens
 	#>
 	# TODO: Remove old windows prompts for new ones
-	try {
-		$logonAnimationPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\.NETFramework\v4.0.30319'
-		if (!(Test-path $logonAnimationPath)) {
-			throw [System.IO.Path] "$logonAnimationPath not found"
-		}
-		New-ItemProperty -Path $logonAnimationPath -Name 'SystemDefaultTlsVersions' -Value 1 -PropertyType DWord -Force | Out-Null
-	} catch {
-		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
-		Write-Output("[-]  $($_.Exception.Message)")
-	}
 
-	try {
-		$logonAnimationPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
-		if (!(Test-path $logonAnimationPath)) {
-			New-Item -Path $logonAnimationPath -Force
+	$keys = @(
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\.NETFramework\v4.0.30319', 'SystemDefaultTlsVersions', 1, 'Dword'),
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', 'EnableFirstLogonAnimation', 0, 'Dword'),
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\OOBE', 'DisablePrivacyExperience', 1, 'Dword'),
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\OOBE', 'DisableWindowsConsumerFeatures', 1, 'Dword'),
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Edge', 'WebWidgetIsEnabledOnStartup', 0, 'Dword'),
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Edge', 'WebWidgetAllowed', 0, 'Dword')
+	)
+	Write-Output('[i] Disable Obee')
+	foreach ($key in $keys) {
+		try {
+			New-RegistryEntry -Entry $key
+		} catch {
+			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+			Write-Output("[-]  $($_.Exception.Message)")
 		}
-		New-ItemProperty -Path $logonAnimationPath -Name 'EnableFirstLogonAnimation' -Value 0 -PropertyType DWord -Force | Out-Null
-	} catch {
-		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
-		Write-Output("[-]  $($_.Exception.Message)")
 	}
-
-	try {
-		$privacyExperiencePath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\OOBE'
-		if (!(Test-path $privacyExperiencePath)) {
-			New-Item -Path $privacyExperiencePath -Force
-		}
-		New-ItemProperty -Path $privacyExperiencePath -Name 'DisablePrivacyExperience' -Value 1 -PropertyType DWord -Force | Out-Null
-	} catch {
-		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
-		Write-Output("[-]  $($_.Exception.Message)")
-	}
-
-	try {
-		$consumerFeaturesPath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\OOBE'
-		if (!(Test-path $consumerFeaturesPath)) {
-			New-Item -Path $consumerFeaturesPath -Force
-		}
-		New-ItemProperty -Path $consumerFeaturesPath -Name 'DisableWindowsConsumerFeatures' -Value 1 -PropertyType DWord -Force | Out-Null
-	} catch {
-		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
-		Write-Output("[-]  $($_.Exception.Message)")
-	}
-	# New Bing bar disable
-	try {
-		$logonAnimationPath = 'Registry::HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Edge'
-		if (!(Test-path $logonAnimationPath)) {
-			New-Item -Path $logonAnimationPath -Force
-		}
-		New-ItemProperty -Path $logonAnimationPath -Name 'WebWidgetIsEnabledOnStartup' -Value 0 -PropertyType DWord -Force | Out-Null
-		New-ItemProperty -Path $logonAnimationPath -Name 'WebWidgetAllowed' -Value 0 -PropertyType DWord -Force | Out-Null
-	} catch {
-		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
-		Write-Output("[-]  $($_.Exception.Message)")
-	}
+	Write-Output('[+] Disable Obee completed')
 }
 
 function Set-FirewallRulePingAllow() {
@@ -728,37 +729,18 @@ function Push-ErrorLogs([string[]] $script:gatheredErrors) {
 }
 
 function Disable-Copilot() {
-	try {
-		$copilot_reg_path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot'
-		if (!(Test-path $copilot_reg_path)) {
-			New-Item -Path $copilot_reg_path -Force
-		}
-		New-ItemProperty -Path $copilot_reg_path -Name 'TurnOffWindowsCopilot' -Value 1 -PropertyType DWord -Force | Out-Null
-	} catch {
-		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+	$keys = @(
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot', 'TurnOffWindowsCopilot', 1, 'DWord')
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Explorer', 'DisableSearchBoxSuggestions', 1, 'DWord')
+		[RegistryEntry]::new('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Windows Search', 'AllowCortana', 0, 'DWord')
+	)
+	foreach ($key in $keys) {
+		try {
+			New-RegistryEntry -Entry $key
+		} catch {
+			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
 		Write-Output("[-]  $($_.Exception.Message)")
-	}
-
-	try {
-		$copilot_search_reg_path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Explorer'
-		if (!(Test-path $copilot_search_reg_path)) {
-			New-Item -Path $copilot_search_reg_path -Force
 		}
-		New-ItemProperty -Path $copilot_search_reg_path -Name 'DisableSearchBoxSuggestions' -Value 1 -PropertyType DWord -Force | Out-Null
-	} catch {
-		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
-		Write-Output("[-]  $($_.Exception.Message)")
-	}
-
-	try {
-		$cortana_reg_path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Windows Search'
-		if (!(Test-path $cortana_reg_path)) {
-			New-Item -Path $cortana_reg_path -Force
-		}
-		New-ItemProperty -Path $cortana_reg_path -Name 'AllowCortana' -Value 0 -PropertyType DWord -Force | Out-Null
-	} catch {
-		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
-		Write-Output("[-]  $($_.Exception.Message)")
 	}
 }
 
