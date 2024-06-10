@@ -727,6 +727,41 @@ function Push-ErrorLogs([string[]] $script:gatheredErrors) {
 	}
 }
 
+function Disable-Copilot() {
+	try {
+		$copilot_reg_path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot'
+		if (!(Test-path $copilot_reg_path)) {
+			New-Item -Path $copilot_reg_path -Force
+		}
+		New-ItemProperty -Path $copilot_reg_path -Name 'TurnOffWindowsCopilot' -Value 1 -PropertyType DWord -Force | Out-Null
+	} catch {
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
+	}
+
+	try {
+		$copilot_search_reg_path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Explorer'
+		if (!(Test-path $copilot_search_reg_path)) {
+			New-Item -Path $copilot_search_reg_path -Force
+		}
+		New-ItemProperty -Path $copilot_search_reg_path -Name 'DisableSearchBoxSuggestions' -Value 1 -PropertyType DWord -Force | Out-Null
+	} catch {
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
+	}
+
+	try {
+		$cortana_reg_path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Windows Search'
+		if (!(Test-path $cortana_reg_path)) {
+			New-Item -Path $cortana_reg_path -Force
+		}
+		New-ItemProperty -Path $cortana_reg_path -Name 'AllowCortana' -Value 0 -PropertyType DWord -Force | Out-Null
+	} catch {
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
+		Write-Output("[-]  $($_.Exception.Message)")
+	}
+}
+
 function Move-DotnetEnvVarPosition() {
 	$dotnet_32bit_path = "C:\Program Files (x86)\dotnet\"
 	$dotnet_64bit_path = "C:\Program Files\dotnet\"
@@ -791,6 +826,7 @@ Set-FirewallRulePingAllow
 Uninstall-LegacyComponents
 Install-Wazuh
 Install-DotNet
+Disable-Copilot
 Move-DotnetEnvVarPosition
 Disable-Copilot
 Push-ErrorLogs($script:gatheredErrors)
