@@ -64,6 +64,7 @@ pub fn edit_organization(
     prefix: String,
     remove_flag: &bool,
     locations: Vec<u64>,
+    is_empty_after_remove: bool
 ) -> String {
     let mut org = OrganizationEditPayload {
         organization_id: organization.organization_id.to_string(),
@@ -78,7 +79,10 @@ pub fn edit_organization(
         org.new_locations = vec![]
     } else {
         org.new_locations = locations;
-        org.deleted_locations = vec![]
+        org.deleted_locations = vec![2]
+    }
+    if is_empty_after_remove {
+        org.new_locations = vec![2]
     }
 
     //dbg!(&org);
