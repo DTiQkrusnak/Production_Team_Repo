@@ -10,7 +10,7 @@ pub struct Args {
     #[arg(short, long)]
     pub password: String,
 
-    /// csv file path with names or ids in first column, names require --names flag to be passed in 
+    /// xlsx file path with names or ids in first column, names require --names flag to be passed in 
     #[arg(short, long)]
     pub file: String,
 
