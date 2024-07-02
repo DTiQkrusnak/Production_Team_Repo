@@ -14,7 +14,7 @@ func main() {
 	var file_with_data_for_import = flag.String(
 		"input",
 		"./locations.xlsx",
-		"path to file with locations data used for import\nCOLUMS:\nBrand|Organization|StoreID|LocationName|Address|PostalCode|City|State|Country|RegionCode")
+		"path to file with locations data used for import.\nFirst row is ignored because of column headers.\nCOLUMS:\nBrand | Organization | StoreID | LocationName | Address | PostalCode | City | State | Country | RegionCode")
 	var generate_just_json_payload = flag.Bool("generate", false, "if set to true, locations will not be imported, instead json payload will be generated in ./output.json file")
 	flag.Parse()
 
@@ -34,5 +34,8 @@ func main() {
 
 	import_locations_content.UserID = session_information.UserID
 	import_locations_content.SessionToken = session_information.SessionToken
-	import_locations(client, import_locations_content)
+	//import_locations(client, import_locations_content)
+
+	// ! TODO change to read model from string and match ID.
+	set_controller_model(client, 8)
 }
