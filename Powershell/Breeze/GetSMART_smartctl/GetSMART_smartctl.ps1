@@ -4,6 +4,7 @@ function Invoke-Breezev2 {
     $downloadPath = "C:\ProgramData\EZUniverse\EZ360ControllerInstaller\Downloads\smartctl.exe"
     $downloadUrl = "https://files-us-ps2.go360iq.com/_Files/Software/Scripts/smartCtl_tool/smartctl.exe"
     $diskFragmentationObjects = New-Object System.Collections.Generic.List[PSCustomObject]
+    $diskHealthObjects = New-Object System.Collections.Generic.List[PSCustomObject]
     
     function CheckDatabaseState {
         try {
@@ -57,6 +58,27 @@ function Invoke-Breezev2 {
         return $nvmeData | ConvertTo-Json
     }
 
+    function GetDrive_Health {
+        Write-Host "Getting drive health..."
+        $drives = Get-WmiObject -Class Win32_Volume | Where-Object { ($_.Name -notlike "\\?*") -and ($null -ne $_.FileSystem) }
+        foreach ($drive in $drives) {
+            $jsonHealthData = C:\ProgramData\EZUniverse\EZ360ControllerInstaller\Downloads\smartctl.exe --health $drive.Name #| ConvertFrom-Json
+            if ($jsonHealthData -match "FAILED!") {
+                #Write-Host "$($drive.Name) : FAILED"
+                $objectDiskHealth = [PSCustomObject]@{             
+                    DriveLetter = $($drive.Name)
+                    Health      = "FAILED!"
+                }
+                $diskHealthObjects.Add($objectDiskHealth)
+            }
+            elseif ($jsonHealthData -match "PASSED") {
+                #Write-Host "$($drive.Name) : PASSED"
+            }
+        }
+        Write-Host "    -> complete"
+        return $diskHealthObjects | ConvertTo-Json
+    }
+
     function GetDefrag_Percent {
         $drives = Get-WmiObject -Class Win32_Volume | Where-Object { ($_.Name -notlike "\\?*") -and ($null -ne $_.FileSystem) }
         Write-Host "Getting FilePercentFragmentation... "
@@ -95,8 +117,8 @@ function Invoke-Breezev2 {
         @{
             "AuthFlow"       = "USER_PASSWORD_AUTH"
             "AuthParameters" = @{
-                "PASSWORD" = 'yIw5(:hk;.YrzcDXQWD['
-                "USERNAME" = "dbochon"
+                "PASSWORD" = 'hRddjQK1VFTHM3jLTMkS!'
+                "USERNAME" = "breeze-prod"
             }
             "ClientId"       = '7nig6316ca3lt7ofs96ci24hl'
         } | ConvertTo-Json
@@ -125,7 +147,8 @@ function Invoke-Breezev2 {
             scriptId        = "8"
             executionDate   = Get-Date -UFormat "%m/%d/%Y %H:%M:%S"
             result          = GetSmartNvme
-            optionalResult1 = GetDefrag_percent
+            optionalResult1 = GetDefrag_Percent
+            optionalResult2 = GetDrive_Health
             errorCode       = "NULL"
             errorDetails    = "NULL"
             teamViewerId    = (Get-ItemProperty HKLM:\SOFTWARE\WOW6432Node\TeamViewer\).ClientID
