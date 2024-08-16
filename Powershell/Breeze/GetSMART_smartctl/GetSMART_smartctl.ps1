@@ -4,6 +4,7 @@ function Invoke-Breezev2 {
     $downloadPath = "C:\ProgramData\EZUniverse\EZ360ControllerInstaller\Downloads\smartctl.exe"
     $downloadUrl = "https://files-us-ps2.go360iq.com/_Files/Software/Scripts/smartCtl_tool/smartctl.exe"
     $diskFragmentationObjects = New-Object System.Collections.Generic.List[PSCustomObject]
+    $diskHealthObjects = New-Object System.Collections.Generic.List[PSCustomObject]
     
     function CheckDatabaseState {
         try {
@@ -39,22 +40,58 @@ function Invoke-Breezev2 {
 
     function GetSmartNvme {
         $getScan = C:\ProgramData\EZUniverse\EZ360ControllerInstaller\Downloads\smartctl.exe --scan -d nvme
-        $getScanCharIndex = $getScan.IndexOf(" ") 
-        $nvmeDrive = $getScan.Substring(0, $getScanCharIndex)
-
-        $jsonData = C:\ProgramData\EZUniverse\EZ360ControllerInstaller\Downloads\smartctl.exe $nvmeDrive -a -j | ConvertFrom-Json
-        #$jsonData.nvme_smart_health_information_log
+        
+        if ($getScan.count -eq 1) {
+            $getScanCharIndex = $getScan.IndexOf(" ") 
+            $nvmeDrive = $getScan.Substring(0, $getScanCharIndex)
     
-        $datawritten = $jsonData.nvme_smart_health_information_log.data_units_written
-        $datawrittenGB = ($datawritten * 500) / 1024 / 1024 / 1024
+            $jsonData = C:\ProgramData\EZUniverse\EZ360ControllerInstaller\Downloads\smartctl.exe $nvmeDrive -a -j | ConvertFrom-Json
+            #$jsonData.nvme_smart_health_information_log
+        
+            $datawritten = $jsonData.nvme_smart_health_information_log.data_units_written
+            $datawrittenGB = ($datawritten * 500) / 1024 / 1024 / 1024
+        
+            $nvmeData = [PSCustomObject]@{
+                Percentage_used    = $($jsonData.nvme_smart_health_information_log.percentage_used)
+                Power_on_hours     = $($jsonData.nvme_smart_health_information_log.power_on_hours)
+                Data_units_written = $($datawrittenGB)
+            }
     
-        $nvmeData = [PSCustomObject]@{
-            Percentage_used    = $($jsonData.nvme_smart_health_information_log.percentage_used)
-            Power_on_hours     = $($jsonData.nvme_smart_health_information_log.power_on_hours)
-            Data_units_written = $($datawrittenGB)
+            return $nvmeData | ConvertTo-Json
+        } else {
+            Write-Host "Abnormal no. of NVMe drives - or cannot access data"
+            getIdToken
+            sendRestDataAbnormal
+            RemoveTool
+            exit 0
         }
+    }
 
-        return $nvmeData | ConvertTo-Json
+    function GetDrive_Health {
+        Write-Host "Getting drive health..."
+        $drives = Get-WmiObject -Class Win32_Volume | Where-Object { ($_.Name -notlike "\\?*") -and ($null -ne $_.FileSystem) }
+        foreach ($drive in $drives) {
+            $jsonHealthData = C:\ProgramData\EZUniverse\EZ360ControllerInstaller\Downloads\smartctl.exe --health $drive.Name #| ConvertFrom-Json
+            if ($jsonHealthData -match "FAILED!") {
+                #Write-Host "$($drive.Name) : FAILED"
+                $objectDiskHealth = [PSCustomObject]@{             
+                    DriveLetter = $($drive.Name)
+                    Health      = "FAILED!"
+                }
+                $diskHealthObjects.Add($objectDiskHealth)
+            }
+            elseif ($jsonHealthData -match "PASSED") {
+                #Write-Host "$($drive.Name) : PASSED"
+            }
+        }
+        Write-Host "    -> complete"
+
+        if ($diskHealthObjects.Count -eq 0) {
+            $diskHealthObjectsString = "No Failing drives detected"
+            return $diskHealthObjectsString
+        } else {
+            return $diskHealthObjects | ConvertTo-Json
+        }
     }
 
     function GetDefrag_Percent {
@@ -95,8 +132,8 @@ function Invoke-Breezev2 {
         @{
             "AuthFlow"       = "USER_PASSWORD_AUTH"
             "AuthParameters" = @{
-                "PASSWORD" = 'yIw5(:hk;.YrzcDXQWD['
-                "USERNAME" = "dbochon"
+                "PASSWORD" = 'hRddjQK1VFTHM3jLTMkS!'
+                "USERNAME" = "breeze-prod"
             }
             "ClientId"       = '7nig6316ca3lt7ofs96ci24hl'
         } | ConvertTo-Json
@@ -125,7 +162,39 @@ function Invoke-Breezev2 {
             scriptId        = "8"
             executionDate   = Get-Date -UFormat "%m/%d/%Y %H:%M:%S"
             result          = GetSmartNvme
-            optionalResult1 = GetDefrag_percent
+            optionalResult1 = GetDefrag_Percent
+            optionalResult2 = GetDrive_Health
+            errorCode       = "NULL"
+            errorDetails    = "NULL"
+            teamViewerId    = (Get-ItemProperty HKLM:\SOFTWARE\WOW6432Node\TeamViewer\).ClientID
+        } | ConvertTo-Json
+    
+        #$body
+    
+        ### PROD API
+        [Net.ServicePointManager]::SecurityProtocol = "Tls12"
+        
+        Invoke-RestMethod `
+            -Method Post `
+            -Uri "https://p13fqdhy8i.execute-api.us-east-1.amazonaws.com/prod/v2/ScriptExecution" `
+            -Body $body `
+            -ContentType 'application/json' `
+            -Headers @{
+            "Authorization" = $idToken
+        }
+        #>
+    }
+    function sendRestDataAbnormal {
+        $body = @{
+            locationId      = $locationIDValue
+            locationName    = $displayASValue
+            timestamp       = Get-Date -UFormat "%m/%d/%Y %H:%M:%S"
+            timezoneId      = Get-Date -UFormat "%Z"
+            scriptName      = "getFragmentation"
+            scriptId        = "8"
+            executionDate   = Get-Date -UFormat "%m/%d/%Y %H:%M:%S"
+            result          = "Abnormal no. of NVMe drives - or cannot access data"
+            optionalResult1 = (Get-WmiObject -class Win32_OperatingSystem).Caption
             errorCode       = "NULL"
             errorDetails    = "NULL"
             teamViewerId    = (Get-ItemProperty HKLM:\SOFTWARE\WOW6432Node\TeamViewer\).ClientID
