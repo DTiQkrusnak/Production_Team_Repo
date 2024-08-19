@@ -79,13 +79,13 @@ pub fn edit_organization(
         org.new_locations = vec![]
     } else {
         org.new_locations = locations;
-        org.deleted_locations = vec![2]
+        org.deleted_locations = vec![];
     }
     if is_empty_after_remove {
-        org.new_locations = vec![2]
+        org.new_locations = vec![2];
     }
 
-    //dbg!(&org);
+    // dbg!(&org);
 
     let response = match client
         .post("https://app.go360iq.com/api/Organizations/EditOrganization")
