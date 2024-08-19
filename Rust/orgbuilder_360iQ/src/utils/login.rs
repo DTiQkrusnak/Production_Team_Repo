@@ -62,7 +62,7 @@ pub fn mms_login_request(    client: &Client,
     };
 
     let login_response = match client
-        .post("https://mmsrc.go360iq.com/api/account/Login")
+        .post("https://mms.go360iq.com/api/account/Login")
         .json(&map)
         .send()
     {

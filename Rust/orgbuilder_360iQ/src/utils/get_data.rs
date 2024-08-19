@@ -1,5 +1,5 @@
 
-use std::time::Duration;
+use std::{io::Read, time::Duration};
 
 use reqwest::blocking::{Client, Response};
 use serde::{Deserialize, Serialize};
@@ -43,21 +43,34 @@ pub struct Organization {
 
 fn get_data(client: &Client) -> Result<Response, reqwest::Error> {
     let web_get_everything_url =
-        "https://mmsrc.go360iq.com/api/Filters/GetAllLocationsOrganizationsAndBrands";
+        "https://mms.go360iq.com/api/Filters/GetAllLocationsOrganizationsAndBrands";
 
     client
         .get(web_get_everything_url)
-        .timeout(Duration::from_secs(120))
+        .timeout(Duration::from_secs(60))
+        .header("Accept-Encoding", "gzip")
         .send()
 }
 
 fn parse_all_locations_data_from_response(data: Response) -> Result<String, reqwest::Error> {
-    let data = match data.text() {
-        Ok(data) => data,
-        Err(error) => return Err(error)
-    };
+    let mut d = flate2::read::GzDecoder::new(data);
+    let mut s = String::new();
+    d.read_to_string(&mut s).unwrap();
 
-    Ok(data)
+    //dbg!(&s);
+
+    Ok(s)
+
+    // let data = match s {
+    //     Ok(data) => data,
+    //     Err(error) => return Err(error)
+    // };
+
+    
+
+    // dbg!(&data);
+
+    // Ok(data)
 }
 
 fn parse_all_locations_data_from_text(stringified_data: &str) -> Result<Value, serde_json::Error>{
@@ -112,7 +125,10 @@ pub fn get_and_parse_all_locations_data(client: &Client) -> Value {
             }
         };
 
-       //dbg!(&all_data_downloaded);
+
+        // dbg!(&all_data_downloaded);
+
+       
 
         let all_data_buffer = match utils::get_data::parse_all_locations_data_from_response(all_data_downloaded) {
             Ok(data) => data,
@@ -127,14 +143,14 @@ pub fn get_and_parse_all_locations_data(client: &Client) -> Value {
             }
         };
 
-        //dbg!(&all_data_buffer);
+        // dbg!(&all_data_buffer);
 
         let all_data = match utils::get_data::parse_all_locations_data_from_text(&all_data_buffer) {
             Ok(data) => data,
             Err(error) => {
                 println!("{:?}", error);
                 if get_data_retry_count > 0 {
-                    println!("retrying data parsing, retries left: {}", get_data_retry_count);
+                    println!("retrying data parsing step 2, retries left: {}", get_data_retry_count);
                     get_data_retry_count -= 1;
                     continue
                 }
