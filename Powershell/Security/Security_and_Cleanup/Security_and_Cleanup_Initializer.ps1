@@ -71,10 +71,39 @@ function Invoke-DownloadAndVerify {
 
 $Security_script_file = New-FileDownloadInformation `
     -Name 'Security_and_Cleanup.ps1' `
-    -Link 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/SecurityScripts/Security_and_Cleanup.ps1' `
-    -SHA256Hash 'B306A7E27F713AFE4D66619C580B21066B93B098DD82E9923218220705F7CF15'
+    -Link 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/SecurityScripts/Security_and_Cleanup-Copilot.ps1' `
+    -SHA256Hash '12733a817a79a6367d9a3cbd17c7297612aa6d04b19c5da1b6511c0b243fd5e1'
+
+if ((Get-ItemProperty -Path 'HKLM:\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -Name ControllerModel).ControllerModel -eq 'VDMS DTT') {
+    $plainPassword = 'Qi29TctBdis!'
+    $Password = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
+    $params = @{
+        Name        = 'dtiquser'
+        Password    = $Password
+        FullName    = 'DTiQ Client user'
+        Description = 'DTiQ Client user'
+    }
+    if ($null -eq (Get-LocalUser -Name 'dtiquser' -ErrorAction SilentlyContinue)) {
+        New-LocalUser @params -UserMayNotChangePassword -PasswordNeverExpires
+    }
+
+    # Autologon
+    $RegistryPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+    Set-ItemProperty $RegistryPath 'AutoAdminLogon' -Value "1" -Type String
+    Set-ItemProperty $RegistryPath 'DefaultUsername' -Value "dtiquser" -type String
+    Set-ItemProperty $RegistryPath 'DefaultPassword' -Value "$plainPassword" -type String
+
+    $StartUpPath = 'C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp'
+    New-Item -ItemType SymbolicLink -Path $StartUpPath -Name '360iQPVMController.lnk' -Value 'C:\Program Files (x86)\EZUniverse\360iQPVMController\360iQPVMController.exe' -ErrorAction SilentlyContinue
+}
 
 New-Item -ItemType Directory -Path 'C:\DTIQ\Security_and_Cleanup\' -Force
+Install-Module -Name NTFSSecurity -RequiredVersion 4.2.4 -Force
+Import-Module -Name NTFSSecurity
+Clear-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -DisableInheritance
+Set-NTFSOwner -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'SYSTEM'
+Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'SYSTEM' -AccessRights Full -InheritanceFlags ObjectInherit
+Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'NT AUTHORITY\Administrators' -AccessRights Full -InheritanceFlags ObjectInherit
 Invoke-DownloadAndVerify -DownloadPath 'C:\DTIQ\Security_and_Cleanup\' -FileInfo $Security_script_file
 
-Start-Process -FilePath 'cmd.exe' -ArgumentList '/c START /B powershell.exe -File C:\DTIQ\Security_and_Cleanup\Security_and_Cleanup.ps1 > C:\DTIQ\Security_and_Cleanup\log.txt' -WindowStyle Hidden
+Start-Process -FilePath 'cmd.exe' -ArgumentList '/c START /B powershell.exe -File C:\DTIQ\Security_and_Cleanup\Security_and_Cleanup-Copilot.ps1.ps1 > C:\DTIQ\Security_and_Cleanup\log.txt' -WindowStyle Hidden
