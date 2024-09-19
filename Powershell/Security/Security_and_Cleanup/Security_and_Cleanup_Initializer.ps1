@@ -103,7 +103,7 @@ Import-Module -Name NTFSSecurity
 Clear-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -DisableInheritance
 Set-NTFSOwner -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'SYSTEM'
 Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'SYSTEM' -AccessRights Full -InheritanceFlags ObjectInherit
-Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'NT AUTHORITY\Administrators' -AccessRights Full -InheritanceFlags ObjectInherit
+Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'Administrators' -AccessRights Full -InheritanceFlags ObjectInherit
 Invoke-DownloadAndVerify -DownloadPath 'C:\DTIQ\Security_and_Cleanup\' -FileInfo $Security_script_file
 
 Start-Process -FilePath 'cmd.exe' -ArgumentList '/c START /B powershell.exe -File C:\DTIQ\Security_and_Cleanup\Security_and_Cleanup-Copilot.ps1.ps1 > C:\DTIQ\Security_and_Cleanup\log.txt' -WindowStyle Hidden
