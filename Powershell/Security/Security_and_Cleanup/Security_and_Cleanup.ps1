@@ -14,6 +14,7 @@ $script:gatheredErrors = @()
 function Install-Packages() {
 	try {
 		Install-PackageProvider -Name 'NuGet' -MinimumVersion 2.8.5.201 -Confirm:$false -Force -ForceBootstrap -ErrorAction Stop
+		Install-PackageProvider -Name 'NTFSSecurity' -RequiredVersion 4.2.4 -Confirm:$false -Force -ForceBootstrap -ErrorAction Stop
 		Add-PowershellDefaultRepository
 		Install-Module -Name 'SqlServer' -Confirm:$false -Force -AllowClobber -ErrorAction Stop
 	} catch {
@@ -761,8 +762,17 @@ function Move-DotnetEnvVarPosition() {
 	}
 }
 
+function Limit-AccessToFolders() {
+	Import-Module -Name NTFSSecurity
+	Clear-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -DisableInheritance
+	Set-NTFSOwner -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'SYSTEM'
+	Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'SYSTEM' -AccessRights Full -InheritanceFlags ObjectInherit
+	Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'Administrators' -AccessRights Full -InheritanceFlags ObjectInherit
+}
+
 $startTime = Get-Date
 Install-Packages
+Limit-AccessToFolders
 Get-DotNetFiles
 Disable-Windows11Upgrade
 Set-Hostname
