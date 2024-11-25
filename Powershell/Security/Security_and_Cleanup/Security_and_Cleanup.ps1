@@ -480,6 +480,7 @@ function Uninstall-LegacyComponents() {
 			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
 		}
 	}
+	Start-Service -Name 'EZSystemWatcher' -ErrorAction SilentlyContinue
 	Write-Output('[+] Finished removing Legacy components')
 }
 
@@ -770,13 +771,23 @@ function Limit-AccessToFolders() {
 	Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'Administrators' -AccessRights Full -InheritanceFlags ObjectInherit
 }
 
+function Ensure-EZSystemWatcherIsRunning () {
+	$Watcher = Get-Service -Name 'EZSystemWatcher' -ErrorAction SilentlyContinue
+	$retryCount = 5
+
+	while (($Watcher.Status -ne 'Running') -and ($retryCount -ne 0)) {
+		Start-Service $Watcher -ErrorAction SilentlyContinue
+		Start-Sleep -Seconds 3
+		$retryCount = $retryCount - 1
+	}
+}
+
 $startTime = Get-Date
 Install-Packages
 Limit-AccessToFolders
 Get-DotNetFiles
 Disable-Windows11Upgrade
 Set-Hostname
-# Install-Atera # ! Moved to separate file
 Disable-WindowsUpdateIfAteraNotPresent
 Disable-Obee
 Set-FirewallRulePingAllow
@@ -785,7 +796,7 @@ Install-Wazuh
 Install-DotNet
 Disable-Copilot
 Move-DotnetEnvVarPosition
-Disable-Copilot
+Ensure-EZSystemWatcherIsRunning
 Push-ErrorLogs($script:gatheredErrors)
 
 <# TODO :

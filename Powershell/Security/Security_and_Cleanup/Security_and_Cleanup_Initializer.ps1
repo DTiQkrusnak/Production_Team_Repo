@@ -72,7 +72,7 @@ function Invoke-DownloadAndVerify {
 $Security_script_file = New-FileDownloadInformation `
     -Name 'Security_and_Cleanup.ps1' `
     -Link 'https://files-us-ps2.go360iq.com/_Files/Software/Scripts/SecurityScripts/Security_and_Cleanup.ps1' `
-    -SHA256Hash 'f77f2d1c7e754131e7b4cc1955a30dc4eff021ad31373ffa49a00671a93d1f95'
+    -SHA256Hash '01C7D3FC0F77AF09A646219A8002C4563CF15F9074249A642E8DB691DDEB763F'
 
 if ((Get-ItemProperty -Path 'HKLM:\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -Name ControllerModel).ControllerModel -eq 'VDMS DTT') {
     $plainPassword = 'Qi29TctBdis!'
