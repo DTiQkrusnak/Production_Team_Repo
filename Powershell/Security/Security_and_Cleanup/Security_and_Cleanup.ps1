@@ -262,9 +262,9 @@ function Set-Hostname() {
 		Write-Output('[i] SetHostname')
 
 		try {
-			$script:controllerId = (Get-ItemProperty -Path 'Registry::HKLM\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -Name 'ControllerID' -ErrorAction SilentlyContinue).ControllerID
+			$script:controllerId = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $getControllerIdQuery -QueryTimeout 30 -ErrorAction Stop).ControllerId
 			if ($null -eq $script:controllerId) {
-				$script:controllerId = (Invoke-Sqlcmd -ConnectionString $connectionStringEz360 -Query $getControllerIdQuery -QueryTimeout 30 -ErrorAction Stop).ControllerId
+				$script:controllerId = (Get-ItemProperty -Path 'Registry::HKLM\SOFTWARE\EZUniverse\EZ360ControllerInstaller' -Name 'ControllerID' -ErrorAction SilentlyContinue).ControllerID
 			}
 		} catch {
 			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
@@ -402,6 +402,18 @@ function Uninstall-LegacyComponents() {
 	Get-ChildItem |
 	Get-ItemProperty
 
+	$appNames = $appObjects | ForEach-Object {$_.DisplayName}
+
+	$isAnythingToBeRemoved = $False
+	foreach ($app in $allApplications) {
+		if ($appNames.Contains($app)) {
+			$isAnythingToBeRemoved = $True
+			break
+		}
+	}
+
+	if ($isAnythingToBeRemoved -eq $False) {return}
+
 	Write-Output('[i] Stopping SystemWatcher, SQLReplicator, EZSensor Server and UpdateCenters')
 	Stop-Service -Force -ErrorAction SilentlyContinue -Name (
 		'EZSQLReplicator','EZSystemWatcher', 'EZSensorsServer','SubwayUpdateCenter','EZUpdateCenter')
@@ -480,7 +492,7 @@ function Uninstall-LegacyComponents() {
 			$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
 		}
 	}
-	Start-Service -Name 'EZSystemWatcher' -ErrorAction SilentlyContinue
+	Ensure-EZSystemWatcherIsRunning
 	Write-Output('[+] Finished removing Legacy components')
 }
 
@@ -772,13 +784,29 @@ function Limit-AccessToFolders() {
 }
 
 function Ensure-EZSystemWatcherIsRunning () {
+	function Check-ControllerInstallerIsRunning () {
+		if (Get-Process -Name '360IQControllerInstaller*' -ErrorAction SilentlyContinue) {
+			return $true
+		}
+		else {
+			return $false
+		}
+	}
+
+	if (Check-ControllerInstallerIsRunning) {return}
+
 	$Watcher = Get-Service -Name 'EZSystemWatcher' -ErrorAction SilentlyContinue
 	$retryCount = 5
+
 
 	while (($Watcher.Status -ne 'Running') -and ($retryCount -ne 0)) {
 		Start-Service $Watcher -ErrorAction SilentlyContinue
 		Start-Sleep -Seconds 3
 		$retryCount = $retryCount - 1
+	}
+
+	if (($Watcher | Get-Service).Running -ne 'Running') {
+		$script:gatheredErrors += ("[-]  $($_.Exception.Message)")
 	}
 }
 
