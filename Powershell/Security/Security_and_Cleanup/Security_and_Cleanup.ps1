@@ -414,9 +414,17 @@ function Uninstall-LegacyComponents() {
 
 	if ($isAnythingToBeRemoved -eq $False) {return}
 
-	Write-Output('[i] Stopping SystemWatcher, SQLReplicator, EZSensor Server and UpdateCenters')
-	Stop-Service -Force -ErrorAction SilentlyContinue -Name (
-		'EZSQLReplicator','EZSystemWatcher', 'EZSensorsServer','SubwayUpdateCenter','EZUpdateCenter')
+	foreach ($service in $servicesToRemove) {
+		if ($appNames.Contains($service)) {
+			Stop-Service -Force -ErrorAction SilentlyContinue -Name (
+				'EZSQLReplicator','EZSystemWatcher', 'EZSensorsServer','SubwayUpdateCenter','EZUpdateCenter')
+			Write-Output('[i] Stopping SystemWatcher, SQLReplicator, EZSensor Server and UpdateCenters')
+			break
+		}
+	}
+
+	
+	
 
 	if (Get-Service -Name 'EZSensors Server' -ErrorAction SilentlyContinue) {
 		Set-Service -Name 'EZSensors Server' -Force -StartupType Disabled
@@ -792,7 +800,7 @@ function Ensure-EZSystemWatcherIsRunning () {
 			return $false
 		}
 	}
-
+	# Installer After finishing its current run will start EZSystemWatcher
 	if (Check-ControllerInstallerIsRunning) {return}
 
 	$Watcher = Get-Service -Name 'EZSystemWatcher' -ErrorAction SilentlyContinue
