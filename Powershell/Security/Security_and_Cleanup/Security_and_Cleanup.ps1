@@ -785,10 +785,15 @@ function Move-DotnetEnvVarPosition() {
 
 function Limit-AccessToFolders() {
 	Import-Module -Name NTFSSecurity
+
+	Clear-NTFSAccess -Path 'C:\Program Files (x86)\EZUniverse\360iQPVMController'
+	Get-ChildItem -LiteralPath 'C:\Program Files (x86)\EZUniverse\360iQPVMController' -Recurse | Enable-NTFSAccessInheritance -RemoveExplicitAccessRules
+	Add-NTFSAccess -Path 'C:\Program Files (x86)\EZUniverse\360iQPVMController' -Account 'Users' -AccessRights Full -InheritanceFlags ObjectInherit, ContainerInherit
+
 	Clear-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -DisableInheritance
 	Set-NTFSOwner -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'SYSTEM'
-	Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'SYSTEM' -AccessRights Full -InheritanceFlags ObjectInherit
-	Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'Administrators' -AccessRights Full -InheritanceFlags ObjectInherit
+	Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'SYSTEM' -AccessRights Full -InheritanceFlags ObjectInherit, ContainerInherit
+	Add-NTFSAccess -Path 'C:\DTIQ\Security_and_Cleanup' -Account 'Administrators' -AccessRights Full -InheritanceFlags ObjectInherit, ContainerInherit
 }
 
 function Ensure-EZSystemWatcherIsRunning () {
