@@ -1,0 +1,7 @@
+C:\Users\admin\source\repos\createTask_nodeps\createTask_nodeps\obj\Debug\createTask_nodeps.csproj.AssemblyReference.cache
+C:\Users\admin\source\repos\createTask_nodeps\createTask_nodeps\obj\Debug\createTask_nodeps.csproj.CoreCompileInputs.cache
+C:\Users\admin\source\repos\createTask_nodeps\createTask_nodeps\bin\Debug\createTask_nodeps.exe.config
+C:\Users\admin\source\repos\createTask_nodeps\createTask_nodeps\bin\Debug\createTask_nodeps.exe
+C:\Users\admin\source\repos\createTask_nodeps\createTask_nodeps\bin\Debug\createTask_nodeps.pdb
+C:\Users\admin\source\repos\createTask_nodeps\createTask_nodeps\obj\Debug\createTask_nodeps.exe
+C:\Users\admin\source\repos\createTask_nodeps\createTask_nodeps\obj\Debug\createTask_nodeps.pdb
