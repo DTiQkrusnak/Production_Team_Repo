@@ -25,7 +25,8 @@ function Invoke-Breezev2 {
         $allSmartData = @()
 
         # Get list of drives detected by smartctl
-        $drives = & smartctl --scan | ForEach-Object {
+        $smartPath = 'C:\Program Files\smartmontools\bin\smartctl.exe'
+        $drives = & $smartPath --scan | ForEach-Object {
     ($_ -split " ")[0]
         }
 
