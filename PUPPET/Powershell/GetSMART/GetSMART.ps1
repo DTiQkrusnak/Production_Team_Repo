@@ -32,7 +32,7 @@ function Invoke-Breezev2 {
 
         # Loop through each drive and collect SMART data
         foreach ($drive in $drives) {
-            $smartData = & smartctl -a $drive --json
+            $smartData = & $smartPath -a $drive --json
             $allSmartData += $smartData | ConvertFrom-Json
         }
 
@@ -113,28 +113,28 @@ function Invoke-Breezev2 {
     $isSystem = Get-SystemDrive $allSmartData
     $isNotSystem = Get-NotSystemDrive $allSmartData
 
-    if ($isSystem.count -lt 1) {
+    if ($isSystem.Number.Count -lt 1) {
         $Script:result = Get-JsonData $allSmartData $isSystem | ConvertTo-Json -Depth 10
-        $Script:optionalresult = "NULL"
+        $Script:optionalresult1 = "NULL"
         $Script:optionalresult2 = "NULL"
         $Script:optionalresult3 = "NULL"
         $Script:optionalresult4 = "NULL"
     }
-    elseif ($isSystem.count -eq 1) {
+    elseif ($isSystem.Number.Count -eq 1) {
 
         $Script:result = Get-JsonData $allSmartData $isSystem | ConvertTo-Json -Depth 10
-        if ($isNotSystem.count -lt 1) {
-            $Script:optionalresult = "NULL"
+        if ($isNotSystem.Number.Count -lt 1) {
+            $Script:optionalresult1 = "NULL"
             $Script:optionalresult2 = "NULL"
             $Script:optionalresult3 = "NULL"
             $Script:optionalresult4 = "NULL"
         }
         else {
             if ($null -ne $isNotSystem[0]) {
-                $Script:optionalresult = Get-JsonData $allSmartData $isNotSystem[0] | ConvertTo-Json -Depth 10
+                $Script:optionalresult1 = Get-JsonData $allSmartData $isNotSystem[0] | ConvertTo-Json -Depth 10
             }
             else {
-                $Script:optionalresult = "NULL"
+                $Script:optionalresult1 = "NULL"
             }
 
             if ($null -ne $isNotSystem[1]) {
@@ -194,7 +194,7 @@ function Invoke-Breezev2 {
             scriptId        = "19"
             executionDate   = Get-Date -UFormat "%m/%d/%Y %H:%M:%S"
             result          = $Script:result #| ConvertTo-Json -Compress
-            optionalResult1 = $Script:optionalresult #| ConvertTo-Json -Compress
+            optionalResult1 = $Script:optionalresult1 #| ConvertTo-Json -Compress
             optionalResult2 = $Script:optionalresult2
             optionalResult3 = $Script:optionalresult3
             optionalResult4 = $Script:optionalresult4
