@@ -154,7 +154,7 @@ function Invoke-Breezev2 {
             timestamp       = Get-Date -UFormat "%m/%d/%Y %H:%M:%S"
             timezoneId      = Get-Date -UFormat "%Z"
             scriptName      = "SMARTDATA"
-            scriptId        = "21"
+            scriptId        = "4"
             executionDate   = Get-Date -UFormat "%m/%d/%Y %H:%M:%S"
             result          = $smartBreeze.issystem
             optionalResult1 = "$($smartBreeze.diskName)"
@@ -173,7 +173,7 @@ function Invoke-Breezev2 {
         
         Invoke-RestMethod `
             -Method Post `
-            -Uri "https://p13fqdhy8i.execute-api.us-east-1.amazonaws.com/prod/v2/ScriptExecution" `
+            -Uri "https://p13fqdhy8i.execute-api.us-east-1.amazonaws.com/prod/v2/LongStoredScriptExecution" `
             -Body $body `
             -ContentType 'application/json' `
             -Headers @{
@@ -189,6 +189,7 @@ function Invoke-Breezev2 {
 
     getIdToken
     sendRestData
+    exit 0
 }
 
 Invoke-Breezev2
