@@ -89,12 +89,12 @@ function Invoke-Breezev2 {
             }
             return $drivedata
         }
-        elseif ($smartData.driveSmart.device.type -eq 'SATA') {
+        elseif ($smartData.driveSmart.device.type -like "*ATA*") {
             #Write-Host "Disk is ATA"
             $drivedata = [PSCustomObject]@{
-                issystem = $drive.IsSystem
-                diskName = ($selectedData | Select-Object 'model_name').model_name
-                smart    = ($selectedData | Select-Object 'ata_smart_attributes').ata_smart_attributes.table 
+                issystem = $smartData.IsSystem
+                diskName = $smartData.diskName
+                smart    = ($smartData.driveSmart | Select-Object 'ata_smart_attributes').ata_smart_attributes.table 
                 info     = "NULL"
             }
             return $drivedata
@@ -102,9 +102,9 @@ function Invoke-Breezev2 {
         elseif ($smartData.driveSmart.device.type -eq 'SCSI') {
             #Write-Host "Disk is SCSI"
             $drivedata = [PSCustomObject]@{
-                issystem = $drive.IsSystem
-                diskName = ($selectedData | Select-Object 'model_name').model_name
-                smart    = ($selectedData | Select-Object 'scsi_grown_defect_list').ata_smart_attributes.table
+                issystem = $smartData.IsSystem
+                diskName = $smartData.diskName
+                smart    = ($smartData.driveSmart | Select-Object 'scsi_grown_defect_list').ata_smart_attributes.table
                 info     = "NULL"
             }
             return $drivedata
