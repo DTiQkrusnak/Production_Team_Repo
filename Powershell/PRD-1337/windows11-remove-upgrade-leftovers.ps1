@@ -18,7 +18,11 @@ function Remove-IsoFolders() {
             continue
         }
         Write-Output("Removing $possible_iso_path")
-        Remove-Item -Path $possible_iso_path -Recurse -Force
+        try {
+            Remove-Item -Path $possible_iso_path -Recurse -Force -ErrorAction Stop
+        } catch {
+            Write-Error("Cannot remove $possible_iso_path")
+        }
     }
 }
 
