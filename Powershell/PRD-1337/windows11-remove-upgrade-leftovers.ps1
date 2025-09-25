@@ -13,7 +13,7 @@ function Remove-IsoFolders() {
 
     foreach ($disk in $disks) {
         $possible_iso_path = "$($disk):\$iso_base_path"
-        if (!(Test-Path -LiteralPath $possible_iso_path)) {
+        if (!(Test-Path -LiteralPath $possible_iso_path -ErrorAction SilentlyContinue)) {
             Write-Output("no ISO at $possible_iso_path")
             continue
         }
