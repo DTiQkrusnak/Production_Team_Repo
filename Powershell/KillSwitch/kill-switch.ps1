@@ -221,8 +221,17 @@ $script_block = {
 
     function Remove-DatabaseBackups() {
         Write-Host 'Removing Database backups from all drives...' -ForegroundColor Yellow
-        #!notimplemented
-        #! to be implemented in v2
+        $drives = Get-Partition | Where-Object {$_.Type -eq 'Basic'} | ForEach-Object {$_.DriveLetter}
+
+        foreach ($drive in $drives) {
+            Get-ChildItem -Path "$($drive):\" `
+                -Filter '*.bak' `
+                -Force `
+                -Recurse `
+                -File `
+                -ErrorAction SilentlyContinue |
+                Remove-Item -Force
+        }
     }
 
     function Remove-DTiQUsers() {

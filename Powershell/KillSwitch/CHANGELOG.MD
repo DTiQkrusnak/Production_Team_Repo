@@ -1,5 +1,9 @@
 ### CHANGELOG - DTiQ-Kill-Switch
 ---
+#### version 1.1
+##### Added:
+- remove *.bak files from all partitions
+---
 #### version 1.0
 ##### Added:
 - uninstall DTiQ services
