@@ -27,19 +27,29 @@ function Remove-IsoFolders() {
 }
 
 function Invoke-SystemDiskCleanup() {
-    $5minute_timeout = 300
-    $proc = Start-Process `
-        -FilePath cleanmgr.exe `
-        -ArgumentList ('/sagerun:1 /verylowdisk /autoclean') `
-        -PassThru
-    Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Wait-Process -Timeout $5minute_timeout
+    Start-ProcessWithTimeout `
+        -Path cleanmgr.exe `
+        -Arguments '/sagerun:1 /verylowdisk /autoclean' `
+        -Timeout 900
 
-    $proc = Start-Process `
-        -FilePath dism.exe `
-        -ArgumentList ('/online /Cleanup-Image /StartComponentCleanup /ResetBase') `
-        -PassThru
-    Get-Process -InputObject $proc -ErrorAction SilentlyContinue | Wait-Process -Timeout $5minute_timeout
+    Start-ProcessWithTimeout `
+        -Path dism.exe `
+        -Arguments '/online /Cleanup-Image /StartComponentCleanup /ResetBase' `
+        -Timeout 3600
+}
 
+function Start-ProcessWithTimeout($Path, $Arguments, $Timeout) {
+    try {
+        $proc = Start-Process `
+            -FilePath $Path `
+            -ArgumentList $Arguments `
+            -PassThru
+        Get-Process -InputObject $proc -ErrorAction SilentlyContinue |
+            Wait-Process -Timeout $Timeout -ErrorAction Stop
+    } catch {
+        Write-Error("$Path not started or timed out")
+        Stop-Process -InputObject $proc -Force -ErrorAction SilentlyContinue
+    }
 }
 
 if (Test-OsWin11) {
