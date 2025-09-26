@@ -29,12 +29,12 @@ function Remove-IsoFolders() {
 function Invoke-SystemDiskCleanup() {
     Start-ProcessWithTimeout `
         -Path cleanmgr.exe `
-        -Arguments '/sagerun:1 /verylowdisk /autoclean' `
+        -Arguments ('/sagerun:1 /verylowdisk /autoclean') `
         -Timeout 900
 
     Start-ProcessWithTimeout `
         -Path dism.exe `
-        -Arguments '/online /Cleanup-Image /StartComponentCleanup /ResetBase' `
+        -Arguments ('/online /Cleanup-Image /StartComponentCleanup /ResetBase') `
         -Timeout 3600
 }
 
