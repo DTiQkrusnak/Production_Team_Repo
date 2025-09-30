@@ -27,6 +27,8 @@ function Remove-IsoFolders() {
 }
 
 function Invoke-SystemDiskCleanup() {
+    # NOTE: Windows 11 systems consider cleanmgr deprecated and moved to new System Settings -> Storage -> Temporary Files
+    # Storage Sense have to be configured per user registry hive in order to clean Downloads, Temp and other user paths
     Start-ProcessWithTimeout `
         -Path cleanmgr.exe `
         -Arguments ('/sagerun:1 /verylowdisk /autoclean') `
@@ -52,7 +54,28 @@ function Start-ProcessWithTimeout($Path, $Arguments, $Timeout) {
     }
 }
 
+function Remove-TempFolders() {
+    $profile_temp_folders = Get-ChildItem -Path 'C:\Users' -Directory | ForEach-Object {
+        if (Test-Path "$($_.FullName)\AppData\Local\Temp") {
+            "$($_.FullName)\AppData\Local\Temp"
+        }
+
+        if (Test-Path "$($_.FullName)\Downloads") {
+            "$($_.FullName)\Downloads"
+        }
+    }
+
+    foreach ($path in $profile_temp_folders) {
+        $size = (Get-ChildItem -Path $path -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum /1024/1024
+        $rounded = [math]::Round($size, 2)
+        Write-Host "$rounded MB | $path"
+
+        Get-ChildItem -Path $path -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 if (Test-OsWin11) {
     Remove-IsoFolders
     Invoke-SystemDiskCleanup
+    Remove-TempFolders
 }
