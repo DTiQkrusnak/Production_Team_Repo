@@ -77,23 +77,12 @@ function Invoke-BreezeV2 {
 	}
 }
 function Disable-DaylightSavingTime() {
-    $daylight_saving_reg_path = 'Registry::HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation'
-    $daylight_saving_reg_property = 'DynamicDaylightTimeDisabled'
+    $current_timezone = tzutil.exe /g
 
-    if (Test-Path -Path $daylight_saving_reg_path -ErrorAction SilentlyContinue) {
-        Set-ItemProperty -Path $daylight_saving_reg_path `
-            -Name $daylight_saving_reg_property `
-            -Value 1 `
-            -Force
-    } else {
-        New-ItemProperty -Path $daylight_saving_reg_path `
-            -Name $daylight_saving_reg_property `
-            -Value 1 `
-            -PropertyType DWord `
-            -Force
+    if ($current_timezone -match "_dstoff") {
+        return 0
     }
-
-    return 0
+    tzutil.exe /s "$($current_timezone)_dstoff"
 }
 
 function Get-CurrentDaylightSavineTimeSetting() {
@@ -125,6 +114,18 @@ function Get-LocationIdentificationData() {
     return $location_data
 }
 
+function Disable-AutomaticTimeSync() {
+    $auto_time_sync_reg_path = 'Registry::HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters'
+    $auto_time_sync_reg_property = 'Type'
+
+    if (Test-Path -Path $auto_time_sync_reg_path -ErrorAction SilentlyContinue) {
+        Set-ItemProperty -Path $auto_time_sync_reg_path `
+            -Name $auto_time_sync_reg_property `
+            -Value 'NoSync' `
+            -Force
+    }
+}
+
 
 $location_data = Get-LocationIdentificationData
 $daylight_result = Get-CurrentDaylightSavineTimeSetting
@@ -141,3 +142,4 @@ if (($daylight_result -eq 0) -and ($location_data -ne -1)) {
 }
 
 Disable-DaylightSavingTime
+Disable-AutomaticTimeSync
