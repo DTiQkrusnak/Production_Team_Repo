@@ -77,11 +77,14 @@ function Invoke-BreezeV2 {
 	}
 }
 function Disable-DaylightSavingTime() {
+    # get current timezone full name
     $current_timezone = tzutil.exe /g
 
     if ($current_timezone -match "_dstoff") {
         return 0
     }
+
+    # set timezone with full name and disabled (dst) daylight saving time
     tzutil.exe /s "$($current_timezone)_dstoff"
 }
 
