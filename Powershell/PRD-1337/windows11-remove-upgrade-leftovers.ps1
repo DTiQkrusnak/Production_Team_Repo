@@ -74,8 +74,22 @@ function Remove-TempFolders() {
     }
 }
 
+function Remove-DesktopScriptFiles() {
+    $profile_desktop_folders = Get-ChildItem -Path 'C:\Users' -Directory | ForEach-Object {
+        if (Test-Path "$($_.FullName)\Desktop") {
+            "$($_.FullName)\Desktop"
+        }
+    }
+
+    foreach ($path in $profile_desktop_folders) {
+        Get-ChildItem -Path $path -Recurse -Filter '*.ps1' -ErrorAction SilentlyContinue | `
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 if (Test-OsWin11) {
     Remove-IsoFolders
     Invoke-SystemDiskCleanup
     Remove-TempFolders
+    Remove-DesktopScriptFiles
 }
