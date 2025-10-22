@@ -87,9 +87,54 @@ function Remove-DesktopScriptFiles() {
     }
 }
 
+function  Remove-BreezeTask {
+    $taskList = @(
+        'W10W11Upgrade',
+        'UpdateWindows'
+    )
+    foreach ($taskName in $taskList) {
+        $taskExists = Get-ScheduledTask -TaskName $taskName -TaskPath "\" -ErrorAction SilentlyContinue
+        if ($taskExists) {
+            try {
+                Write-Host "Removing Task..."
+                Unregister-ScheduledTask -TaskName $taskName -TaskPath "\" -Confirm:$false | Out-Null
+            }
+            catch {
+                $_.Exception.Message
+            }
+        }
+    }
+}
+
+function Remove-Files {
+    $filePathList = @(
+        'C:\ProgramData\DTiQ\W10W11Upgrade\Breeze_W10W11Upgrade.ps1'
+    )
+    foreach ($itemPath in $filePathList) {
+        if (Test-Path $itemPath -ErrorAction SilentlyContinue) {
+            try {
+                Write-Host " -> Removing file : $itemPath"
+                Remove-Item -Path $itemPath -Force -Confirm:$false #| Out-Null
+                Write-Host "   -> removed"
+            }
+            catch {
+                $_.Exception.Message
+            }
+        }
+        else {
+            Write-Host " -> Not found : $itemPath"
+        }
+    }
+}
+
+
+
+
 if (Test-OsWin11) {
     Remove-IsoFolders
     Invoke-SystemDiskCleanup
     Remove-TempFolders
     Remove-DesktopScriptFiles
+    Remove-BreezeTask
+    Remove-Files
 }
